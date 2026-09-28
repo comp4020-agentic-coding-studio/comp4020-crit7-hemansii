@@ -1,7 +1,7 @@
 ---
+import Layout from "../layouts/Layout.astro";
 import { getSessionUser } from "../lib/auth";
 import { listUpcomingBookingsForUser } from "../lib/db";
-import "../styles.css";
 
 const user = getSessionUser(Astro.cookies);
 if (!user) return Astro.redirect("/login?next=/bookings", 303);
@@ -10,49 +10,32 @@ const today = new Date().toISOString().slice(0, 10);
 const upcoming = listUpcomingBookingsForUser(user.id, today);
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>My bookings</title>
-  </head>
-  <body>
-    <header class="site-header">
-      <nav class="site-nav" aria-label="site">
-        <span class="brand">ANU Library Rooms</span>
-        <a href="/">Rooms</a>
-        <a href="/bookings">My bookings</a>
-        <a href="/readme/">About</a>
-      </nav>
-    </header>
-    <main>
-      <h1>My bookings</h1>
-      <p class="account-line">
-        Signed in as {user.email}.
-        <form method="post" action="/api/logout" class="inline-form">
-          <button class="btn-secondary">Log out</button>
-        </form>
-      </p>
-      {
-        upcoming.length === 0 ? (
-          <p>No upcoming bookings.</p>
-        ) : (
-          <ul id="upcoming-bookings">
-            {upcoming.map((b) => (
-              <li>
-                <span>
-                  {b.roomName}: {b.date} {b.startTime}–{b.endTime}
-                </span>
-                <form method="post" action="/api/bookings/cancel" class="inline-form">
-                  <input type="hidden" name="id" value={b.id} />
-                  <button class="btn-secondary">Cancel</button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )
-      }
-    </main>
-  </body>
-</html>
+<Layout title="My bookings" active="bookings">
+  <h1>My bookings</h1>
+  <p class="account-line">
+    Signed in as {user.email}.
+    <form method="post" action="/api/logout" class="inline-form">
+      <button class="btn-secondary">Log out</button>
+    </form>
+  </p>
+
+  {
+    upcoming.length === 0 ? (
+      <p class="empty-state">No upcoming bookings — browse rooms to book a slot.</p>
+    ) : (
+      <ul id="upcoming-bookings">
+        {upcoming.map((b) => (
+          <li>
+            <span>
+              <strong>{b.roomName}</strong> · {b.date}, {b.startTime}–{b.endTime}
+            </span>
+            <form method="post" action="/api/bookings/cancel" class="inline-form">
+              <input type="hidden" name="id" value={b.id} />
+              <button class="btn-secondary">Cancel</button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</Layout>

@@ -1,8 +1,8 @@
 ---
+import Layout from "../../layouts/Layout.astro";
 import { getSessionUser } from "../../lib/auth";
 import { CLOSING_TIME, ERROR_MESSAGES, OPENING_TIME, type BookingRejection } from "../../lib/bookings";
 import { getRoom, listBookingsForRoomOnDate } from "../../lib/db";
-import "../../styles.css";
 
 const id = Number(Astro.params.id);
 const room = getRoom(id);
@@ -23,61 +23,60 @@ const schedule = listBookingsForRoomOnDate(id, date);
 const user = getSessionUser(Astro.cookies);
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{room.name}</title>
-  </head>
-  <body>
-    <header class="site-header">
-      <nav class="site-nav" aria-label="site">
-        <span class="brand">ANU Library Rooms</span>
-        <a href="/">Rooms</a>
-        <a href="/bookings">My bookings</a>
-        <a href="/readme/">About</a>
-      </nav>
-    </header>
-    <main>
-      <h1>{room.name}</h1>
-      <p>
-        Seats {room.capacity}
-        {room.equipment ? ` · ${room.equipment.split(",").join(", ")}` : ""}
-      </p>
+<Layout title={room.name} active="rooms">
+  <h1>{room.name}</h1>
+  <p class="lede">
+    Seats {room.capacity}
+    {room.equipment ? ` · ${room.equipment.split(",").join(", ")}` : ""}
+  </p>
 
-      <nav aria-label="date">
-        <ul id="date-nav">
-          {
-            dates.map((d) => (
-              <li>
-                <a href={`/rooms/${id}/?date=${d}`} aria-current={d === date ? "date" : undefined}>
-                  {d}
-                </a>
-              </li>
-            ))
-          }
+  <div class="section">
+    <h2>Choose a date</h2>
+    <nav aria-label="date">
+      <ul id="date-nav">
+        {
+          dates.map((d) => (
+            <li>
+              <a href={`/rooms/${id}/?date=${d}`} aria-current={d === date ? "date" : undefined}>
+                {d === toISODate(today) ? "Today" : d}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+
+  <div class="section">
+    <h2>Schedule for {date}</h2>
+    {error && <p role="alert">{ERROR_MESSAGES[error]}</p>}
+    {
+      schedule.length === 0 ? (
+        <p class="empty-state">The room is free all day — nothing booked yet.</p>
+      ) : (
+        <ul id="schedule">
+          {schedule.map((b) => (
+            <li>
+              <span>
+                {b.startTime}–{b.endTime}
+              </span>
+              <span class="badge">Booked</span>
+            </li>
+          ))}
         </ul>
-      </nav>
+      )
+    }
+  </div>
 
-      <h2>Schedule for {date}</h2>
-      {error && <p role="alert">{ERROR_MESSAGES[error]}</p>}
-      {
-        schedule.length === 0 ? (
-          <p>No bookings yet — the room is free all day.</p>
-        ) : (
-          <ul id="schedule">
-            {schedule.map((b) => <li>{b.startTime}–{b.endTime} (booked)</li>)}
-          </ul>
-        )
-      }
-
-      {
-        user ? (
+  <div class="section">
+    {
+      user ? (
+        <>
+          <h2>Book this room</h2>
           <form method="post" action="/api/bookings/create" class="card">
             <input type="hidden" name="roomId" value={id} />
             <input type="hidden" name="date" value={date} />
-            <div>
+            <div class="field">
               <label for="startTime">Start</label>
               <input
                 id="startTime"
@@ -89,7 +88,7 @@ const user = getSessionUser(Astro.cookies);
                 step="1800"
               />
             </div>
-            <div>
+            <div class="field">
               <label for="endTime">End</label>
               <input
                 id="endTime"
@@ -103,26 +102,26 @@ const user = getSessionUser(Astro.cookies);
             </div>
             <button>Book</button>
           </form>
-        ) : (
-          <p>
-            <a href={`/login?next=${encodeURIComponent(`/rooms/${id}/?date=${date}`)}`}>Log in</a> to book this
-            room.
-          </p>
-        )
+        </>
+      ) : (
+        <p class="empty-state">
+          <a href={`/login?next=${encodeURIComponent(`/rooms/${id}/?date=${date}`)}`}>Log in</a> to book this room.
+        </p>
+      )
+    }
+  </div>
+
+  <script define:vars={{ roomId: id, date }}>
+    // One global SSE stream carries every room's bookings (see
+    // src/lib/events.ts); this page only cares about its own room+date, so
+    // it filters client-side rather than the server needing a per-room
+    // stream.
+    const source = new EventSource("/api/events");
+    source.addEventListener("message", (event) => {
+      const booking = JSON.parse(event.data);
+      if (booking.roomId === roomId && booking.date === date) {
+        location.reload();
       }
-    </main>
-    <script define:vars={{ roomId: id, date }}>
-      // One global SSE stream carries every room's bookings (see
-      // src/lib/events.ts); this page only cares about its own room+date, so
-      // it filters client-side rather than the server needing a per-room
-      // stream.
-      const source = new EventSource("/api/events");
-      source.addEventListener("message", (event) => {
-        const booking = JSON.parse(event.data);
-        if (booking.roomId === roomId && booking.date === date) {
-          location.reload();
-        }
-      });
-    </script>
-  </body>
-</html>
+    });
+  </script>
+</Layout>

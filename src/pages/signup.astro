@@ -1,5 +1,5 @@
 ---
-import "../styles.css";
+import Layout from "../layouts/Layout.astro";
 
 const error = Astro.url.searchParams.get("error");
 const next = Astro.url.searchParams.get("next") || "/";
@@ -10,41 +10,25 @@ const messages: Record<string, string> = {
 };
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sign up</title>
-  </head>
-  <body>
-    <header class="site-header">
-      <nav class="site-nav" aria-label="site">
-        <span class="brand">ANU Library Rooms</span>
-        <a href="/">Rooms</a>
-        <a href="/bookings">My bookings</a>
-        <a href="/readme/">About</a>
-      </nav>
-    </header>
-    <main>
-      <div class="card auth-card">
-        <h1>Sign up</h1>
-        <p>Booking a room needs an ANU account — this proves you're a student, not just someone typing an email.</p>
-        {error && <p role="alert">{messages[error] ?? "Something went wrong."}</p>}
-        <form method="post" action="/api/signup" class="auth-form">
-          <input type="hidden" name="next" value={next} />
-          <div>
-            <label for="email">ANU email</label>
-            <input id="email" name="email" type="email" required placeholder="u1234567@anu.edu.au" />
-          </div>
-          <div>
-            <label for="password">Password</label>
-            <input id="password" name="password" type="password" required minlength="8" />
-          </div>
-          <button>Sign up</button>
-        </form>
-        <p>Already have an account? <a href={`/login?next=${encodeURIComponent(next)}`}>Log in</a>.</p>
+<Layout title="Sign up">
+  <div class="card auth-card">
+    <h1>Sign up</h1>
+    <p>Booking a room needs an ANU account — this proves you're a student, not just someone typing an email.</p>
+    {error && <p role="alert">{messages[error] ?? "Something went wrong."}</p>}
+    <form method="post" action="/api/signup" class="auth-form">
+      <input type="hidden" name="next" value={next} />
+      <div class="field">
+        <label for="email">ANU email</label>
+        <input id="email" name="email" type="email" required placeholder="u1234567@anu.edu.au" />
       </div>
-    </main>
-  </body>
-</html>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required minlength="8" />
+      </div>
+      <button>Sign up</button>
+    </form>
+    <p class="auth-footnote">
+      Already have an account? <a href={`/login?next=${encodeURIComponent(next)}`}>Log in</a>.
+    </p>
+  </div>
+</Layout>

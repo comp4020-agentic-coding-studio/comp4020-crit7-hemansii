@@ -1,42 +1,29 @@
 ---
+import Layout from "../layouts/Layout.astro";
 import { listRooms } from "../lib/db";
-import "../styles.css";
 
 const rooms = listRooms();
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Study rooms</title>
-  </head>
-  <body>
-    <header class="site-header">
-      <nav class="site-nav" aria-label="site">
-        <span class="brand">ANU Library Rooms</span>
-        <a href="/">Rooms</a>
-        <a href="/bookings">My bookings</a>
-        <a href="/readme/">About</a>
-      </nav>
-    </header>
-    <main>
-      <h1>Study rooms</h1>
-      <p>Pick a room to see today's schedule and book a slot.</p>
-      <ul id="rooms">
-        {
-          rooms.map((room) => (
-            <li>
-              <a href={`/rooms/${room.id}/`}>{room.name}</a>
-              <span class="room-meta">
-                Seats {room.capacity}
-                {room.equipment ? ` · ${room.equipment.split(",").join(", ")}` : ""}
-              </span>
-            </li>
-          ))
-        }
-      </ul>
-    </main>
-  </body>
-</html>
+<Layout title="Study rooms" active="rooms">
+  <h1>Study rooms</h1>
+  <p class="lede">Pick a room to see today's schedule and book a slot.</p>
+
+  <ul id="rooms">
+    {
+      rooms.map((room) => (
+        <li>
+          <a href={`/rooms/${room.id}/`}>{room.name}</a>
+          <span class="room-meta">Seats {room.capacity}</span>
+          {room.equipment && (
+            <ul class="badge-list">
+              {room.equipment.split(",").map((item) => (
+                <li class="badge">{item}</li>
+              ))}
+            </ul>
+          )}
+        </li>
+      ))
+    }
+  </ul>
+</Layout>

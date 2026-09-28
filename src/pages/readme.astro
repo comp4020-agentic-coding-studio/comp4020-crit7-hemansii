@@ -2,7 +2,7 @@
 // README.md, rendered: what this app is and what good looks like here,
 // published with the app. spec/readme.test.ts checks the whole of it is here.
 import * as readme from "../../README.md";
-import "../styles.css";
+import Layout from "../layouts/Layout.astro";
 
 const title = readme.getHeadings().find((h) => h.depth === 1)?.text ?? "README";
 
@@ -11,22 +11,6 @@ const title = readme.getHeadings().find((h) => h.depth === 1)?.text ?? "README";
 const html = (await readme.compiledContent()).replace(/(src|href)="public\//g, '$1="/');
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
-  </head>
-  <body>
-    <header class="site-header">
-      <nav class="site-nav" aria-label="site">
-        <span class="brand">ANU Library Rooms</span>
-        <a href="/">Rooms</a>
-        <a href="/bookings">My bookings</a>
-        <a href="/readme/">About</a>
-      </nav>
-    </header>
-    <main set:html={html} />
-  </body>
-</html>
+<Layout title={title} active="readme">
+  <div set:html={html} />
+</Layout>
