@@ -13,15 +13,17 @@ const rooms = listRooms();
     {
       rooms.map((room) => (
         <li>
-          <a href={`/rooms/${room.id}/`}>{room.name}</a>
-          <span class="room-meta">Seats {room.capacity}</span>
-          {room.equipment && (
-            <ul class="badge-list">
-              {room.equipment.split(",").map((item) => (
-                <li class="badge">{item}</li>
-              ))}
-            </ul>
-          )}
+          <a class="room-card" href={`/rooms/${room.id}/`}>
+            <span class="room-name">{room.name}</span>
+            <span class="room-meta">Seats {room.capacity}</span>
+            {room.equipment && (
+              <ul class="badge-list">
+                {room.equipment.split(",").map((item) => (
+                  <li class="badge">{item}</li>
+                ))}
+              </ul>
+            )}
+          </a>
         </li>
       ))
     }
