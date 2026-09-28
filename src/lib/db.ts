@@ -24,6 +24,36 @@ export const db = drizzle(client);
 // commit the migration it writes to drizzle/.
 migrate(db, { migrationsFolder: "./drizzle" });
 
+// A handful of example bookings so a fresh database (a first boot, or a
+// throwaway one under test) doesn't demo as a totally empty timetable. Dates
+// can't live in the static seed migration (they'd be frozen at the day the
+// migration was written), so this runs at boot instead, guarded to fire only
+// once — before any real booking exists. It seeds "today", which none of the
+// booking spec's scenarios touch (they all book relative future days), so it
+// never collides with a test run.
+function seedExampleBookings(): void {
+  if (db.select({ id: bookings.id }).from(bookings).limit(1).all().length > 0) return;
+
+  const demoUser = db
+    .insert(users)
+    .values({ email: "demo@anu.edu.au", passwordHash: "seed:not-a-real-account" })
+    .returning()
+    .get();
+
+  const today = new Date().toISOString().slice(0, 10);
+  const examples = [
+    { roomId: 3, startTime: "10:00", endTime: "11:30" },
+    { roomId: 4, startTime: "13:00", endTime: "14:00" },
+    { roomId: 5, startTime: "15:30", endTime: "17:00" },
+  ];
+  for (const example of examples) {
+    db.insert(bookings)
+      .values({ ...example, date: today, userId: demoUser.id })
+      .run();
+  }
+}
+seedExampleBookings();
+
 export type { Booking, Room, User };
 
 export function listRooms(): Room[] {
@@ -45,9 +75,9 @@ export function createUser(email: string, passwordHash: string): User {
 export function listBookingsForRoomOnDate(
   roomId: number,
   date: string,
-): { startTime: string; endTime: string }[] {
+): { id: number; startTime: string; endTime: string }[] {
   return db
-    .select({ startTime: bookings.startTime, endTime: bookings.endTime })
+    .select({ id: bookings.id, startTime: bookings.startTime, endTime: bookings.endTime })
     .from(bookings)
     .where(and(eq(bookings.roomId, roomId), eq(bookings.date, date)))
     .orderBy(asc(bookings.startTime))

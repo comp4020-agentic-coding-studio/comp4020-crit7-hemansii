@@ -15,14 +15,10 @@ const rooms = listRooms();
         <li>
           <a class="room-card" href={`/rooms/${room.id}/`}>
             <span class="room-name">{room.name}</span>
-            <span class="room-meta">Seats {room.capacity}</span>
-            {room.equipment && (
-              <ul class="badge-list">
-                {room.equipment.split(",").map((item) => (
-                  <li class="badge">{item}</li>
-                ))}
-              </ul>
-            )}
+            <span class="room-meta">
+              {room.capacity} {room.capacity === 1 ? "seat" : "seats"}
+              {room.equipment && ` · ${room.equipment.split(",").join(", ")}`}
+            </span>
           </a>
         </li>
       ))

@@ -12,5 +12,5 @@ const html = (await readme.compiledContent()).replace(/(src|href)="public\//g, '
 ---
 
 <Layout title={title} active="readme">
-  <div set:html={html} />
+  <div class="prose" set:html={html} />
 </Layout>

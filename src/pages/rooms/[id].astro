@@ -19,8 +19,33 @@ const dates = Array.from({ length: 14 }, (_, i) => {
   return toISODate(d);
 });
 
-const schedule = listBookingsForRoomOnDate(id, date);
+const rawSchedule = listBookingsForRoomOnDate(id, date);
 const user = getSessionUser(Astro.cookies);
+
+// Timetable geometry: every time is placed as a percentage down the
+// OPENING_TIME–CLOSING_TIME span, so the markup only needs top/height and
+// never a fixed row grid to keep in sync with the business rules' hours.
+const toMinutes = (time: string): number => {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+};
+const dayStart = toMinutes(OPENING_TIME);
+const dayEnd = toMinutes(CLOSING_TIME);
+const daySpan = dayEnd - dayStart;
+
+const hourMarks = Array.from({ length: dayEnd / 60 - dayStart / 60 + 1 }, (_, i) => {
+  const hour = dayStart / 60 + i;
+  return {
+    label: `${String(hour).padStart(2, "0")}:00`,
+    top: ((hour * 60 - dayStart) / daySpan) * 100,
+  };
+});
+
+const schedule = rawSchedule.map((b) => ({
+  ...b,
+  top: ((toMinutes(b.startTime) - dayStart) / daySpan) * 100,
+  height: ((toMinutes(b.endTime) - toMinutes(b.startTime)) / daySpan) * 100,
+}));
 ---
 
 <Layout title={room.name} active="rooms">
@@ -50,22 +75,30 @@ const user = getSessionUser(Astro.cookies);
   <div class="section">
     <h2>Schedule for {date}</h2>
     {error && <p role="alert">{ERROR_MESSAGES[error]}</p>}
-    {
-      schedule.length === 0 ? (
-        <p class="empty-state">The room is free all day — nothing booked yet.</p>
-      ) : (
-        <ul id="schedule">
-          {schedule.map((b) => (
-            <li>
-              <span>
+    <div class="timetable" role="group" aria-label={`Booking schedule for ${date}, ${OPENING_TIME} to ${CLOSING_TIME}`}>
+      <div class="timetable-hours" aria-hidden="true">
+        {
+          hourMarks.map((h) => (
+            <div class="timetable-hour" style={`top:${h.top}%`}>
+              <span>{h.label}</span>
+            </div>
+          ))
+        }
+      </div>
+      <ol class="timetable-track">
+        {
+          schedule.map((b) => (
+            <li class="timetable-slot" data-tone={String(b.id % 5)} style={`top:${b.top}%;height:${b.height}%`}>
+              <span class="timetable-slot-time">
                 {b.startTime}–{b.endTime}
               </span>
-              <span class="badge">Booked</span>
+              <span class="timetable-slot-label">Booked</span>
             </li>
-          ))}
-        </ul>
-      )
-    }
+          ))
+        }
+      </ol>
+    </div>
+    {schedule.length === 0 && <p class="timetable-note">Free all day — nothing booked yet.</p>}
   </div>
 
   <div class="section">

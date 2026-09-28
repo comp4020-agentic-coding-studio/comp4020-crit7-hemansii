@@ -28,7 +28,27 @@
   --shadow-sm: 0 1px 2px rgba(15, 61, 92, 0.06);
   --shadow: 0 2px 10px rgba(15, 61, 92, 0.08);
   --shadow-hover: 0 6px 20px rgba(15, 61, 92, 0.12);
-  --content-width: 52rem;
+  --content-width: 70rem;
+  --prose-width: 42rem;
+
+  /* Rotating palette for booking blocks on the room timetable — distinct,
+     calm hues so several bookings in one day read at a glance without
+     implying any ranking or meaning per colour. */
+  --slot-0-bg: #eaf2fb;
+  --slot-0-border: #6fa8dc;
+  --slot-0-text: #1c4e80;
+  --slot-1-bg: #fbeed2;
+  --slot-1-border: #d8a53d;
+  --slot-1-text: #7a5510;
+  --slot-2-bg: #e9f5ec;
+  --slot-2-border: #6fbf8b;
+  --slot-2-text: #1f6b3f;
+  --slot-3-bg: #f3ebfa;
+  --slot-3-border: #a888d6;
+  --slot-3-text: #5b3a8c;
+  --slot-4-bg: #fdecec;
+  --slot-4-border: #e08b8b;
+  --slot-4-text: #8c3131;
 }
 
 * {
@@ -44,7 +64,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.6;
   color: var(--ink);
@@ -205,31 +225,6 @@ hr.divider {
   padding: 1.4rem;
 }
 
-/* ---------- Badges / chips ---------- */
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 500;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.badge-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0.5rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
 /* ---------- Room grid ---------- */
 
 #rooms {
@@ -238,26 +233,29 @@ hr.divider {
   margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  /* align-items: start keeps each card sized to its own content instead of
-     stretching to match the tallest card in its row, which was leaving a
-     block of dead space at the bottom of shorter cards. */
-  align-items: start;
   gap: 0.75rem;
 }
 
 #rooms li {
   margin: 0;
+  /* All cards share this height rather than sizing to content — with a
+     single fixed-length meta line per card (see .room-meta), nothing is
+     left empty inside it. */
+  height: 100%;
 }
 
 .room-card {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 0.3rem;
+  height: 100%;
+  min-height: 5rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 0.85rem 1rem;
+  padding: 0.9rem 1.1rem;
   text-decoration: none;
   cursor: pointer;
   transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
@@ -277,7 +275,7 @@ hr.divider {
 
 .room-name {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 1.02rem;
   color: var(--brand-dark);
 }
 
@@ -287,7 +285,7 @@ hr.divider {
 
 .room-meta {
   color: var(--muted-2);
-  font-size: 0.84rem;
+  font-size: 0.85rem;
 }
 
 /* ---------- Date navigation ---------- */
@@ -325,9 +323,116 @@ hr.divider {
   font-weight: 600;
 }
 
-/* ---------- Schedule + bookings lists ---------- */
+/* ---------- Room timetable ---------- */
 
-#schedule,
+.timetable {
+  position: relative;
+  height: 42rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.timetable-hours {
+  position: absolute;
+  inset: 0;
+}
+
+.timetable-hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--border);
+}
+
+.timetable-hour:first-child {
+  border-top: none;
+}
+
+.timetable-hour span {
+  position: absolute;
+  top: -0.62em;
+  left: 0.85rem;
+  background: var(--surface);
+  padding-right: 0.4rem;
+  color: var(--muted-2);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.timetable-track {
+  position: absolute;
+  inset: 0 0.9rem 0 4.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timetable-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+  min-height: 1.6rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  overflow: hidden;
+}
+
+.timetable-slot-time {
+  font-weight: 600;
+}
+
+.timetable-slot-label {
+  opacity: 0.8;
+  font-size: 0.78rem;
+}
+
+.timetable-slot[data-tone="0"] {
+  background: var(--slot-0-bg);
+  border-color: var(--slot-0-border);
+  color: var(--slot-0-text);
+}
+
+.timetable-slot[data-tone="1"] {
+  background: var(--slot-1-bg);
+  border-color: var(--slot-1-border);
+  color: var(--slot-1-text);
+}
+
+.timetable-slot[data-tone="2"] {
+  background: var(--slot-2-bg);
+  border-color: var(--slot-2-border);
+  color: var(--slot-2-text);
+}
+
+.timetable-slot[data-tone="3"] {
+  background: var(--slot-3-bg);
+  border-color: var(--slot-3-border);
+  color: var(--slot-3-text);
+}
+
+.timetable-slot[data-tone="4"] {
+  background: var(--slot-4-bg);
+  border-color: var(--slot-4-border);
+  color: var(--slot-4-text);
+}
+
+.timetable-note {
+  margin-top: 0.6rem;
+  color: var(--muted-2);
+  font-size: 0.88rem;
+}
+
+/* ---------- Upcoming bookings list ---------- */
+
 #upcoming-bookings {
   list-style: none;
   padding: 0;
@@ -337,7 +442,6 @@ hr.divider {
   gap: 0.55rem;
 }
 
-#schedule li,
 #upcoming-bookings li {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -495,6 +599,10 @@ button:focus-visible {
 }
 
 /* ---------- README ---------- */
+
+.prose {
+  max-width: var(--prose-width);
+}
 
 main :is(h1, h2, h3) {
   color: var(--brand-dark);
