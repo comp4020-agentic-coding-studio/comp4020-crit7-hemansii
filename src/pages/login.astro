@@ -1,0 +1,38 @@
+---
+import "../styles.css";
+
+const error = Astro.url.searchParams.get("error");
+const next = Astro.url.searchParams.get("next") || "/";
+const messages: Record<string, string> = {
+  "invalid-credentials": "Wrong email or password.",
+};
+---
+
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Log in</title>
+  </head>
+  <body>
+    <nav aria-label="site">
+      <a href="/">Rooms</a>
+      <a href="/bookings">My bookings</a>
+      <a href="/readme/">About</a>
+    </nav>
+    <main>
+      <h1>Log in</h1>
+      {error && <p role="alert">{messages[error] ?? "Something went wrong."}</p>}
+      <form method="post" action="/api/login">
+        <input type="hidden" name="next" value={next} />
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required />
+        <button>Log in</button>
+      </form>
+      <p>No account? <a href={`/signup?next=${encodeURIComponent(next)}`}>Sign up</a> with your @anu.edu.au email.</p>
+    </main>
+  </body>
+</html>

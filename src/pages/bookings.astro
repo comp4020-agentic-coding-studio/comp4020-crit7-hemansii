@@ -1,0 +1,48 @@
+---
+import { getSessionUser } from "../lib/auth";
+import { listUpcomingBookingsForUser } from "../lib/db";
+import "../styles.css";
+
+const user = getSessionUser(Astro.cookies);
+if (!user) return Astro.redirect("/login?next=/bookings", 303);
+
+const today = new Date().toISOString().slice(0, 10);
+const upcoming = listUpcomingBookingsForUser(user.id, today);
+---
+
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My bookings</title>
+  </head>
+  <body>
+    <nav aria-label="site">
+      <a href="/">Rooms</a>
+      <a href="/bookings">My bookings</a>
+      <a href="/readme/">About</a>
+    </nav>
+    <main>
+      <h1>My bookings</h1>
+      <p>Signed in as {user.email}. <form method="post" action="/api/logout" style="display: inline"><button>Log out</button></form></p>
+      {
+        upcoming.length === 0 ? (
+          <p>No upcoming bookings.</p>
+        ) : (
+          <ul id="upcoming-bookings">
+            {upcoming.map((b) => (
+              <li>
+                {b.roomName}: {b.date} {b.startTime}–{b.endTime}
+                <form method="post" action="/api/bookings/cancel" style="display: inline">
+                  <input type="hidden" name="id" value={b.id} />
+                  <button>Cancel</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </main>
+  </body>
+</html>

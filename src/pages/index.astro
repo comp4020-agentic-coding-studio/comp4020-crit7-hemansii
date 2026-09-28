@@ -1,8 +1,8 @@
 ---
-import { listMessages } from "../lib/db";
+import { listRooms } from "../lib/db";
 import "../styles.css";
 
-const messages = listMessages();
+const rooms = listRooms();
 ---
 
 <!doctype html>
@@ -10,44 +10,27 @@ const messages = listMessages();
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>COMP4020 prototype</title>
+    <title>Study rooms</title>
   </head>
   <body>
     <nav aria-label="site">
-      <a href="/">Guestbook</a>
+      <a href="/">Rooms</a>
+      <a href="/bookings">My bookings</a>
       <a href="/readme/">About</a>
     </nav>
     <main>
-      <h1>Guestbook</h1>
-      <p>
-        A minimal full-stack starter: messages live in SQLite on the machine's
-        volume (state survives a reload and a redeploy), and new messages
-        appear in every open tab over a server-sent-events stream — open this
-        page twice and sign it in one. Replace all of this with your own
-        prototype.
-      </p>
-      <form method="post" action="/api/messages">
-        <label for="body">Leave a message</label>
-        <input id="body" name="body" required maxlength="500" />
-        <button>Sign</button>
-      </form>
-      <ul id="messages">
-        {messages.map((message) => <li>{message.body}</li>)}
+      <h1>Study rooms</h1>
+      <p>Pick a room to see today's schedule and book a slot.</p>
+      <ul id="rooms">
+        {
+          rooms.map((room) => (
+            <li>
+              <a href={`/rooms/${room.id}/`}>{room.name}</a> — seats {room.capacity}
+              {room.equipment ? `, ${room.equipment.split(",").join(", ")}` : ""}
+            </li>
+          ))
+        }
       </ul>
     </main>
-    <script>
-      // The live half of the demo: subscribe to the SSE stream and prepend
-      // messages as they arrive. The form itself needs none of this — its
-      // POST + redirect re-renders the submitting tab from SQLite; this
-      // stream is how every other tab finds out.
-      const list = document.querySelector("#messages");
-      const source = new EventSource("/api/events");
-      source.addEventListener("message", (event) => {
-        const message = JSON.parse(event.data);
-        const item = document.createElement("li");
-        item.textContent = message.body;
-        list?.prepend(item);
-      });
-    </script>
   </body>
 </html>

@@ -35,6 +35,21 @@ button {
   font: inherit;
 }
 
-#messages {
+#rooms,
+#schedule,
+#upcoming-bookings {
   padding-inline-start: 1.2rem;
+}
+
+#date-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-inline-start: 0;
+  list-style: none;
+}
+
+#date-nav a[aria-current="date"] {
+  font-weight: bold;
+  text-decoration: none;
 }
