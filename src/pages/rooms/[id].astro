@@ -73,8 +73,20 @@ const schedule = rawSchedule.map((b) => ({
   </div>
 
   <div class="section">
-    <h2>Schedule for {date}</h2>
-    {error && <p role="alert">{ERROR_MESSAGES[error]}</p>}
+    <div class="section-header">
+      <h2>Schedule for {date}</h2>
+      {
+        user ? (
+          <button type="button" class="btn-primary" data-open-dialog="booking-dialog">
+            Make booking
+          </button>
+        ) : (
+          <a class="btn-primary" href={`/login?next=${encodeURIComponent(`/rooms/${id}/?date=${date}`)}`}>
+            Log in to book
+          </a>
+        )
+      }
+    </div>
     <div class="timetable" role="group" aria-label={`Booking schedule for ${date}, ${OPENING_TIME} to ${CLOSING_TIME}`}>
       <div class="timetable-hours" aria-hidden="true">
         {
@@ -101,14 +113,23 @@ const schedule = rawSchedule.map((b) => ({
     {schedule.length === 0 && <p class="timetable-note">Free all day — nothing booked yet.</p>}
   </div>
 
-  <div class="section">
-    {
-      user ? (
-        <>
-          <h2>Book this room</h2>
-          <form method="post" action="/api/bookings/create" class="card">
-            <input type="hidden" name="roomId" value={id} />
-            <input type="hidden" name="date" value={date} />
+  {
+    user && (
+      <dialog id="booking-dialog" class="booking-dialog" aria-labelledby="booking-dialog-title">
+        <div class="booking-dialog-header">
+          <h2 id="booking-dialog-title">Book {room.name}</h2>
+          <button type="button" class="dialog-close" aria-label="Close" data-close-dialog>
+            ×
+          </button>
+        </div>
+        <p class="booking-dialog-sub">
+          {date} · {OPENING_TIME}–{CLOSING_TIME}
+        </p>
+        <form method="post" action="/api/bookings/create" class="booking-form">
+          {error && <p role="alert">{ERROR_MESSAGES[error]}</p>}
+          <input type="hidden" name="roomId" value={id} />
+          <input type="hidden" name="date" value={date} />
+          <div class="field-row">
             <div class="field">
               <label for="startTime">Start</label>
               <input
@@ -133,18 +154,21 @@ const schedule = rawSchedule.map((b) => ({
                 step="1800"
               />
             </div>
-            <button>Book</button>
-          </form>
-        </>
-      ) : (
-        <p class="empty-state">
-          <a href={`/login?next=${encodeURIComponent(`/rooms/${id}/?date=${date}`)}`}>Log in</a> to book this room.
-        </p>
-      )
-    }
-  </div>
+          </div>
+          <div class="booking-dialog-actions">
+            <button type="button" class="btn-secondary" data-close-dialog>
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary">
+              Confirm booking
+            </button>
+          </div>
+        </form>
+      </dialog>
+    )
+  }
 
-  <script define:vars={{ roomId: id, date }}>
+  <script define:vars={{ roomId: id, date, autoOpenBooking: Boolean(error) }}>
     // One global SSE stream carries every room's bookings (see
     // src/lib/events.ts); this page only cares about its own room+date, so
     // it filters client-side rather than the server needing a per-room
@@ -156,5 +180,14 @@ const schedule = rawSchedule.map((b) => ({
         location.reload();
       }
     });
+
+    const dialog = document.getElementById("booking-dialog");
+    for (const opener of document.querySelectorAll("[data-open-dialog]")) {
+      opener.addEventListener("click", () => dialog?.showModal());
+    }
+    for (const closer of document.querySelectorAll("[data-close-dialog]")) {
+      closer.addEventListener("click", () => dialog?.close());
+    }
+    if (autoOpenBooking) dialog?.showModal();
   </script>
 </Layout>
