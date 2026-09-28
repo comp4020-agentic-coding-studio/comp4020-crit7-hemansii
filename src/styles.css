@@ -305,42 +305,81 @@ hr.divider {
 
 #date-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0;
-  margin: 0 0 1.75rem;
+  gap: 0.55rem;
+  padding: 0.2rem 0.2rem 0.7rem;
+  margin: 0 0 1rem;
   list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
-#date-nav a {
-  display: inline-block;
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
+#date-nav li {
+  flex: 0 0 auto;
+}
+
+.date-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  width: 3.75rem;
+  padding: 0.6rem 0.3rem 0.55rem;
   border: 1px solid var(--border);
+  border-radius: var(--radius);
   background: var(--surface);
-  color: var(--muted);
   text-decoration: none;
-  font-size: 0.84rem;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.date-pill-dow {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+.date-pill-day {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.date-pill-month {
+  font-size: 0.68rem;
   font-weight: 500;
+  color: var(--muted-2);
 }
 
-#date-nav a:hover {
+.date-pill:hover {
   border-color: var(--brand-bright);
-  color: var(--brand-bright);
+  box-shadow: var(--shadow-sm);
 }
 
-#date-nav a[aria-current="date"] {
+.date-pill:focus-visible {
+  outline: 2px solid var(--brand-bright);
+  outline-offset: 2px;
+}
+
+.date-pill[aria-current="date"] {
   background: var(--brand);
   border-color: var(--brand);
+  box-shadow: var(--shadow-sm);
+}
+
+.date-pill[aria-current="date"] .date-pill-dow,
+.date-pill[aria-current="date"] .date-pill-day,
+.date-pill[aria-current="date"] .date-pill-month {
   color: white;
-  font-weight: 600;
 }
 
 /* ---------- Room timetable ---------- */
 
 .timetable {
-  position: relative;
-  height: 46rem;
+  display: flex;
+  height: 44rem;
+  padding-block: 1.6rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -348,53 +387,57 @@ hr.divider {
   overflow: hidden;
 }
 
-/* The hour ruler and the booking track both sit inside the same top/bottom
-   inset so their percentage-based positions line up — the inset itself is
-   what reserves room for the first hour label, which otherwise sits half
-   above its gridline and gets clipped by the container's own top edge. */
-.timetable-hours,
-.timetable-track {
-  position: absolute;
-  top: 1.5rem;
-  bottom: 0.9rem;
-}
-
+/* A dedicated label gutter, separate from the grid lines it annotates —
+   each label is vertically centred on its own gridline's percentage
+   position via translateY(-50%), and the timetable's own padding-block
+   (larger than half a label's line height) guarantees the first and last
+   labels have headroom on both sides, so they can never be clipped by the
+   container's overflow:hidden the way an overlapping chip could be. */
 .timetable-hours {
-  left: 0;
-  right: 0;
+  position: relative;
+  flex: 0 0 3.75rem;
+  border-right: 1px solid var(--border);
+  background: var(--surface-muted);
 }
 
 .timetable-hour {
   position: absolute;
   left: 0;
-  right: 0;
-  border-top: 1px dashed var(--border);
-}
-
-.timetable-hour:first-child {
-  border-top: 1px solid var(--border-strong);
-}
-
-.timetable-hour:last-child {
-  border-top: 1px solid var(--border-strong);
-}
-
-.timetable-hour span {
-  position: absolute;
-  top: -0.72em;
-  left: 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.06rem 0.55rem;
+  right: 0.65rem;
+  transform: translateY(-50%);
+  text-align: right;
   color: var(--muted-2);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
 
+.timetable-body {
+  position: relative;
+  flex: 1;
+}
+
+.timetable-gridlines {
+  position: absolute;
+  inset: 0;
+}
+
+.timetable-gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--border);
+}
+
+.timetable-gridline:first-child,
+.timetable-gridline:last-child {
+  border-top: 1px solid var(--border-strong);
+}
+
 .timetable-track {
-  left: 4.75rem;
+  position: absolute;
+  inset: 0;
+  left: 1rem;
   right: 1.1rem;
   list-style: none;
   margin: 0;
@@ -480,7 +523,8 @@ hr.divider {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem 1.5rem 0;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .booking-dialog-header h2 {
@@ -502,16 +546,18 @@ hr.divider {
 }
 
 .booking-dialog-sub {
-  margin: 0.3rem 1.5rem 0;
+  margin: 0;
+  padding: 0.9rem 1.5rem 0;
   color: var(--muted-2);
   font-size: 0.88rem;
+  font-weight: 500;
 }
 
 .booking-form {
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
-  padding: 1.25rem 1.5rem 1.5rem;
+  padding: 0.9rem 1.5rem 1.5rem;
 }
 
 .field-row {
@@ -523,7 +569,8 @@ hr.divider {
   flex: 1;
 }
 
-.booking-form input {
+.booking-form input,
+.booking-form select {
   width: 100%;
 }
 
@@ -606,6 +653,33 @@ input {
 
 .auth-form input {
   min-width: 0;
+}
+
+select {
+  min-width: 10rem;
+  padding: 0.55rem 2.25rem 0.55rem 0.75rem;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background-color: white;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5 8l5 5 5-5' stroke='%236b7686' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.8rem;
+  appearance: none;
+  cursor: pointer;
+}
+
+select:invalid {
+  color: var(--muted-2);
+}
+
+select:focus-visible {
+  outline: 2px solid var(--brand-bright);
+  outline-offset: 1px;
+  border-color: var(--brand-bright);
 }
 
 input:focus-visible {

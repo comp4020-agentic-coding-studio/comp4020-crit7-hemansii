@@ -13,10 +13,19 @@ const today = new Date();
 const date = Astro.url.searchParams.get("date") || toISODate(today);
 const error = Astro.url.searchParams.get("error") as BookingRejection | null;
 
+// Each nav entry carries its own weekday/day/month labels, computed from the
+// same Date object used to derive the ISO string, rather than re-parsing the
+// ISO date later — re-parsing a date-only string constructs a UTC midnight
+// Date, which can read back as the wrong local day.
 const dates = Array.from({ length: 14 }, (_, i) => {
   const d = new Date(today);
   d.setDate(d.getDate() + i);
-  return toISODate(d);
+  return {
+    iso: toISODate(d),
+    weekday: d.toLocaleDateString("en-AU", { weekday: "short" }),
+    day: d.getDate(),
+    month: d.toLocaleDateString("en-AU", { month: "short" }),
+  };
 });
 
 const rawSchedule = listBookingsForRoomOnDate(id, date);
@@ -46,6 +55,14 @@ const schedule = rawSchedule.map((b) => ({
   top: ((toMinutes(b.startTime) - dayStart) / daySpan) * 100,
   height: ((toMinutes(b.endTime) - toMinutes(b.startTime)) / daySpan) * 100,
 }));
+
+// Half-hour options for the booking dialog's start/end pickers — plain
+// <select>s read the same everywhere, unlike a native time input's
+// browser-specific spinner UI.
+const timeOptions = Array.from({ length: daySpan / 30 + 1 }, (_, i) => {
+  const minutes = dayStart + i * 30;
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+});
 ---
 
 <Layout title={room.name} active="rooms">
@@ -62,8 +79,14 @@ const schedule = rawSchedule.map((b) => ({
         {
           dates.map((d) => (
             <li>
-              <a href={`/rooms/${id}/?date=${d}`} aria-current={d === date ? "date" : undefined}>
-                {d === toISODate(today) ? "Today" : d}
+              <a
+                class="date-pill"
+                href={`/rooms/${id}/?date=${d.iso}`}
+                aria-current={d.iso === date ? "date" : undefined}
+              >
+                <span class="date-pill-dow">{d.iso === toISODate(today) ? "Today" : d.weekday}</span>
+                <span class="date-pill-day">{d.day}</span>
+                <span class="date-pill-month">{d.month}</span>
               </a>
             </li>
           ))
@@ -91,24 +114,29 @@ const schedule = rawSchedule.map((b) => ({
       <div class="timetable-hours" aria-hidden="true">
         {
           hourMarks.map((h) => (
-            <div class="timetable-hour" style={`top:${h.top}%`}>
-              <span>{h.label}</span>
-            </div>
+            <span class="timetable-hour" style={`top:${h.top}%`}>
+              {h.label}
+            </span>
           ))
         }
       </div>
-      <ol class="timetable-track">
-        {
-          schedule.map((b) => (
-            <li class="timetable-slot" data-tone={String(b.id % 5)} style={`top:${b.top}%;height:${b.height}%`}>
-              <span class="timetable-slot-time">
-                {b.startTime}–{b.endTime}
-              </span>
-              <span class="timetable-slot-label">Booked</span>
-            </li>
-          ))
-        }
-      </ol>
+      <div class="timetable-body">
+        <div class="timetable-gridlines" aria-hidden="true">
+          {hourMarks.map((h) => <div class="timetable-gridline" style={`top:${h.top}%`} />)}
+        </div>
+        <ol class="timetable-track">
+          {
+            schedule.map((b) => (
+              <li class="timetable-slot" data-tone={String(b.id % 5)} style={`top:${b.top}%;height:${b.height}%`}>
+                <span class="timetable-slot-time">
+                  {b.startTime}–{b.endTime}
+                </span>
+                <span class="timetable-slot-label">Booked</span>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
     </div>
     {schedule.length === 0 && <p class="timetable-note">Free all day — nothing booked yet.</p>}
   </div>
@@ -132,27 +160,29 @@ const schedule = rawSchedule.map((b) => ({
           <div class="field-row">
             <div class="field">
               <label for="startTime">Start</label>
-              <input
-                id="startTime"
-                name="startTime"
-                type="time"
-                required
-                min={OPENING_TIME}
-                max={CLOSING_TIME}
-                step="1800"
-              />
+              <select id="startTime" name="startTime" required>
+                <option value="" disabled selected>
+                  Select time
+                </option>
+                {
+                  timeOptions.slice(0, -1).map((t) => (
+                    <option value={t}>{t}</option>
+                  ))
+                }
+              </select>
             </div>
             <div class="field">
               <label for="endTime">End</label>
-              <input
-                id="endTime"
-                name="endTime"
-                type="time"
-                required
-                min={OPENING_TIME}
-                max={CLOSING_TIME}
-                step="1800"
-              />
+              <select id="endTime" name="endTime" required>
+                <option value="" disabled selected>
+                  Select time
+                </option>
+                {
+                  timeOptions.slice(1).map((t) => (
+                    <option value={t}>{t}</option>
+                  ))
+                }
+              </select>
             </div>
           </div>
           <div class="booking-dialog-actions">
