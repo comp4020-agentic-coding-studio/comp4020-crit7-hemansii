@@ -32,13 +32,16 @@ const links: { href: string; label: string; key: NavKey }[] = [
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <link rel="icon" type="image/svg+xml" href="/anu-logo.svg" />
     <title>{title}</title>
   </head>
   <body>
     <header class="site-header">
       <nav class="site-nav" aria-label="site">
         <a href="/" class="brand">
-          <span class="brand-mark" aria-hidden="true">◆</span>
+          {/* Decorative: the wordmark beside it already names the site, so an
+              alt here would just make a screen reader say it twice. */}
+          <img class="brand-logo" src="/anu-logo.svg" alt="" width="1006" height="930" />
           ANU Library Rooms
         </a>
         <ul class="nav-links">

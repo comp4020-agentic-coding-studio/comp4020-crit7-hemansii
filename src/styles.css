@@ -122,9 +122,12 @@ img {
   margin-right: auto;
 }
 
-.brand-mark {
-  color: var(--accent);
-  font-size: 0.85em;
+/* The crest carries fine detail (the motto scroll) that turns to mush much
+   below this, so it sets the header's height rather than shrinking to fit. */
+.brand-logo {
+  height: 2.1rem;
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .nav-links {
