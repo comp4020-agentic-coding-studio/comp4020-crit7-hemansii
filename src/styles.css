@@ -1348,10 +1348,15 @@ button:disabled:hover {
 /* The opening statement gets the full width and a larger measure; everything
    below it is reference material and reads better in columns. */
 .readme-lead {
-  max-width: 52rem;
   margin-bottom: 2.25rem;
   padding-bottom: 1.75rem;
   border-bottom: 1px solid var(--border);
+}
+
+/* The rule runs the full width of the cards below it, but the text keeps a
+   readable measure — so the cap goes on the children, not the block. */
+.readme-lead > * {
+  max-width: 52rem;
 }
 
 .readme-lead h1 {
@@ -1366,17 +1371,21 @@ button:disabled:hover {
   margin-bottom: 0;
 }
 
-/* Columns rather than a grid: sections are wildly different lengths, and
-   column flow packs them by height instead of leaving a hole beside the
-   short ones. break-inside keeps a section whole in one column. */
 .readme-columns {
-  columns: 2;
-  column-gap: 1.75rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+/* An odd number of sections would leave a half-empty last row, so the last
+   card spans both tracks instead (see is-wide in src/pages/readme.astro).
+   Cards in a shared row stretch to the same height, which reads as
+   deliberate rather than ragged. */
+.readme-card.is-wide {
+  grid-column: 1 / -1;
 }
 
 .readme-card {
-  break-inside: avoid;
-  margin-bottom: 1.25rem;
   padding: 1.35rem 1.5rem 1.45rem;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1455,7 +1464,7 @@ button:disabled:hover {
 
 @media (max-width: 52rem) {
   .readme-columns {
-    columns: 1;
+    grid-template-columns: 1fr;
   }
 }
 

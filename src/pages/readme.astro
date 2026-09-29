@@ -15,11 +15,22 @@ const html = (await readme.compiledContent()).replace(/(src|href)="public\//g, '
 // pieces: spec/readme.test.ts wants README.md's text on the page as a single
 // contiguous run, which only holds while DOM order matches the file.
 const [lead, ...sections] = html.split(/(?=<h2)/);
+
+// With an odd number of sections the last one would sit alone in a half-empty
+// row, so it spans both columns instead.
+const wideLast = sections.length % 2 === 1;
 ---
 
 <Layout title={title} active="readme">
   <div class="readme-lead" set:html={lead} />
   <div class="readme-columns">
-    {sections.map((section) => <section class="readme-card" set:html={section} />)}
+    {
+      sections.map((section, i) => (
+        <section
+          class:list={["readme-card", { "is-wide": wideLast && i === sections.length - 1 }]}
+          set:html={section}
+        />
+      ))
+    }
   </div>
 </Layout>
