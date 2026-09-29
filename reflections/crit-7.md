@@ -6,12 +6,12 @@ For most of the week I was only thinking about design — spacing, colours,
 layout — and I kept asking for it to look cleaner and be more accessible. The
 breakthrough was realising I was making a bad system prettier: the features
 themselves weren't student-friendly, and no amount of restyling was going to
-fix that. I didn't know what to add, so I asked the agent for ideas, and to
-look at how ANU's real booking site works first. It came back with things I
-wouldn't have guessed — you can't see whether a room is free without logging
-in, the rooms are split across four separate branch pages, and once you've
-booked, the only way to manage it is the confirmation email — and a list of
-features answering them, which I picked from.
+fix that. I had a rough idea of what was wrong from using the real site, so I
+asked the agent to go and check it properly and suggest what to add. It
+confirmed what I'd guessed — you can't see whether a room is free without
+logging in — and turned up what I hadn't: the rooms are split across four
+separate branch pages, and a booking can only be managed through the
+confirmation email. I chose which of its suggestions to build.
 
 My site wasn't just basic-looking, it was answering the same unhelpful
 question the real one does — "is this specific room free?" — instead of the
