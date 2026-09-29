@@ -43,7 +43,6 @@
   --shadow: 0 2px 10px rgba(15, 61, 92, 0.08);
   --shadow-hover: 0 6px 20px rgba(15, 61, 92, 0.12);
   --content-width: 70rem;
-  --prose-width: 42rem;
 
   /* Rotating palette for booking blocks on the room timetable — distinct,
      calm hues so several bookings in one day read at a glance without
@@ -1346,8 +1345,118 @@ button:disabled:hover {
 
 /* ---------- README ---------- */
 
-.prose {
-  max-width: var(--prose-width);
+/* The opening statement gets the full width and a larger measure; everything
+   below it is reference material and reads better in columns. */
+.readme-lead {
+  max-width: 52rem;
+  margin-bottom: 2.25rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.readme-lead h1 {
+  font-size: 2.1rem;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+}
+
+.readme-lead p {
+  font-size: 1.08rem;
+  line-height: 1.7;
+  margin-bottom: 0;
+}
+
+/* Columns rather than a grid: sections are wildly different lengths, and
+   column flow packs them by height instead of leaving a hole beside the
+   short ones. break-inside keeps a section whole in one column. */
+.readme-columns {
+  columns: 2;
+  column-gap: 1.75rem;
+}
+
+.readme-card {
+  break-inside: avoid;
+  margin-bottom: 1.25rem;
+  padding: 1.35rem 1.5rem 1.45rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.readme-card > :last-child {
+  margin-bottom: 0;
+}
+
+.readme-card h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 0 0 0.9rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid var(--accent-soft);
+  font-size: 1.05rem;
+}
+
+.readme-card h2::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.readme-card p {
+  font-size: 0.94rem;
+  line-height: 1.65;
+}
+
+/* The comparison table is the most scannable thing on the page, so it gets
+   room to breathe rather than inheriting the column's prose rhythm. */
+.readme-card table {
+  width: 100%;
+  margin-bottom: 1rem;
+  border-collapse: collapse;
+  /* Fixed layout so a long cell wraps inside its half of the column instead
+     of stretching the table past the card it sits in. */
+  table-layout: fixed;
+  font-size: 0.86rem;
+}
+
+.readme-card th,
+.readme-card td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.readme-card thead th {
+  background: var(--surface-sunken);
+  color: var(--brand-dark);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.readme-card tbody tr:last-child :is(td, th) {
+  border-bottom: none;
+}
+
+.readme-card tbody td:first-child {
+  color: var(--muted-2);
+}
+
+.readme-card strong {
+  color: var(--brand-dark);
+}
+
+@media (max-width: 52rem) {
+  .readme-columns {
+    columns: 1;
+  }
 }
 
 main :is(h1, h2, h3) {

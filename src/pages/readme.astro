@@ -9,8 +9,17 @@ const title = readme.getHeadings().find((h) => h.depth === 1)?.text ?? "README";
 // README images are committed to public/ and linked relatively (public/x.png)
 // so they render on GitHub; here they're served from the site root.
 const html = (await readme.compiledContent()).replace(/(src|href)="public\//g, '$1="/');
+
+// Split at each <h2> so the sections can flow down two columns instead of one
+// long ribbon. Nothing is reordered and nothing is inserted between the
+// pieces: spec/readme.test.ts wants README.md's text on the page as a single
+// contiguous run, which only holds while DOM order matches the file.
+const [lead, ...sections] = html.split(/(?=<h2)/);
 ---
 
 <Layout title={title} active="readme">
-  <div class="prose" set:html={html} />
+  <div class="readme-lead" set:html={lead} />
+  <div class="readme-columns">
+    {sections.map((section) => <section class="readme-card" set:html={section} />)}
+  </div>
 </Layout>

@@ -28,23 +28,14 @@ the actual check.
 
 ## What this does that the real one doesn't
 
-Three things about ANU's LibCal site shaped this build, and each has an answer
-here:
+Three things about ANU's LibCal site shaped this build:
 
-**You can't see a room without logging in.** Every availability grid on the
-real site sits behind SSO, so you can't check whether it's worth walking to
-the library. Here the room list, the day grid and every room's schedule are
-public; a session is only needed to *hold* a slot.
-
-**Rooms are siloed by branch, with no view across them.** Finding a free room
-means opening four separate grids and reading each one. `/` ranks every room
-by live status with filters for group size, equipment and "free right now",
-and `/schedule` puts every room's whole day on one grid where each free
-stretch is a link that opens the booking dialog pre-filled.
-
-**A booking is managed only through the email that confirmed it.** Lose the
-email and you email a human. `/bookings` is the whole lifecycle instead:
-check in, extend by 30 minutes, or cancel.
+| On the real site | Here |
+| --- | --- |
+| Every availability grid sits behind SSO, so you can't tell whether it's worth walking over | Room list, day grid and every room's schedule are public; a session is only needed to *hold* a slot |
+| Rooms are siloed across four branch grids with no view between them | `/` ranks every room by live status, filtered by group size, equipment and "free right now" |
+| Finding a slot means reading one room's grid at a time | `/schedule` puts every room's whole day on one grid, and each free stretch is a link that opens the booking dialog pre-filled |
+| A booking is managed only through the email that confirmed it — lose it and you email a human | `/bookings` carries the whole lifecycle: check in, extend by 30 minutes, or cancel |
 
 Check-in is the one new *rule*, not just new UI. The real library's policy is
 that a booking is cancelled if you're more than 15 minutes late, but it's
