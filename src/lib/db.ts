@@ -4,7 +4,14 @@ import Database from "better-sqlite3";
 import { and, asc, eq, gte, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { CLOSING_MINUTES, OPENING_MINUTES, SLOT_MINUTES, libraryNow, toTime } from "./availability";
+import {
+  CLOSING_MINUTES,
+  OPENING_MINUTES,
+  SLOT_MINUTES,
+  libraryNow,
+  liveBookings,
+  toTime,
+} from "./availability";
 import { type Booking, type Room, type User, bookings, rooms, users } from "./schema";
 
 // One SQLite file is the app's whole persistent state. In production
@@ -25,18 +32,41 @@ export const db = drizzle(client);
 // commit the migration it writes to drizzle/.
 migrate(db, { migrationsFolder: "./drizzle" });
 
-// A handful of example bookings so a fresh database (a first boot, or a
-// throwaway one under test) doesn't demo as a totally empty timetable. Dates
-// can't live in the static seed migration (they'd be frozen at the day the
-// migration was written), so this runs at boot instead, guarded to fire only
-// once — before any real booking exists. It seeds "today", which none of the
-// booking spec's scenarios touch (they all book relative future days), so it
-// never collides with a test run.
+// A handful of example bookings so the app never demos as an empty timetable.
+// Dates can't live in the static seed migration (they'd be frozen at the day
+// the migration was written), so this runs at boot instead. It only ever
+// touches "today", which none of the booking spec's scenarios go near — they
+// all book relative future days — so it can't collide with a test run.
 function seedExampleBookings(): void {
-  if (db.select({ id: bookings.id }).from(bookings).limit(1).all().length > 0) return;
-
   const now = libraryNow();
   const today = now.date;
+
+  // Guarded on today rather than on the table being empty: the examples are
+  // anchored to the current day, so yesterday's would leave a first look at
+  // the app showing nothing at all. A booking that lapsed unclaimed isn't
+  // holding its room any more, so it doesn't count as the day being in use —
+  // the same test the rest of the app applies.
+  const holdingToday = liveBookings(
+    db
+      .select({
+        date: bookings.date,
+        startTime: bookings.startTime,
+        endTime: bookings.endTime,
+        checkedInAt: bookings.checkedInAt,
+      })
+      .from(bookings)
+      .where(eq(bookings.date, today))
+      .all(),
+    today,
+    now.minutes,
+  );
+  if (holdingToday.length > 0) return;
+
+  // The demo accounts persist across days, so look them up before inserting —
+  // users.email is unique and a second insert would throw.
+  const demoUser = (email: string): User =>
+    db.select().from(users).where(eq(users.email, email)).get() ??
+    db.insert(users).values({ email, passwordHash: "seed:not-a-real-account" }).returning().get();
 
   // Anchor the examples to whenever the app first booted rather than to fixed
   // clock times: a booking seeded at 10:00 has already lapsed by lunchtime,
@@ -57,11 +87,7 @@ function seedExampleBookings(): void {
 
   examples.forEach((example, i) => {
     if (example.start < OPENING_MINUTES || example.end > CLOSING_MINUTES) return;
-    const user = db
-      .insert(users)
-      .values({ email: `demo${i + 1}@anu.edu.au`, passwordHash: "seed:not-a-real-account" })
-      .returning()
-      .get();
+    const user = demoUser(`demo${i + 1}@anu.edu.au`);
     db.insert(bookings)
       .values({
         roomId: example.roomId,
