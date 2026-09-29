@@ -1,9 +1,10 @@
 # ANU Library study-room booking
 
 A single-library study-room booking system, answering the question the real
-one can't: **where can I sit right now?** Live availability for every room on
-one page, a whole day's grid across all rooms, booking in two clicks, and
-self-service check-in that hands an unclaimed room back to everyone else.
+one can't: **where can I find an available room right now?** Live availability
+for every room on one page, a whole day's grid across all rooms, booking in two
+clicks, and self-service check-in that hands an unclaimed room back to
+everyone else.
 State (accounts, sessions, bookings) lives in SQLite on the machine's volume,
 so it survives a reload and a redeploy, and a booking appears in every open
 tab over a server-sent-events stream.
