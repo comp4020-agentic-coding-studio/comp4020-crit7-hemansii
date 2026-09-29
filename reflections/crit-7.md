@@ -2,28 +2,30 @@
 
 ## What was the breakthrough that moved the work forward?
 
-For most of the week I was only thinking about design — spacing, colours,
-layout — and I kept asking for it to look cleaner and be more accessible. The
-breakthrough was realising I was making a bad system prettier: the features
-themselves weren't student-friendly, and no amount of restyling was going to
-fix that. I had a rough idea of what was wrong from using the real site, so I
-asked the agent to go and check it properly and suggest what to add. It
-confirmed what I'd guessed — you can't see whether a room is free without
-logging in — and turned up what I hadn't: the rooms are split across four
-separate branch pages, and a booking can only be managed through the
-confirmation email. I chose which of its suggestions to build.
+At first, I was mostly focused on improving the design — spacing, colours,
+layout, and accessibility. The breakthrough was realising that the bigger
+issue was not just how the site looked, but how useful the booking process
+actually was for students.
 
-My site wasn't just basic-looking, it was answering the same unhelpful
-question the real one does — "is this specific room free?" — instead of the
-one a student actually turns up with, which is "where can I sit right now?".
-Accessible stopped meaning contrast and spacing and started meaning whether
-someone could actually get a room.
+From using the real ANU system, I already had a few ideas about what felt
+inconvenient, especially not being able to quickly see which rooms were
+available. I used the agent to check the existing system more closely and
+confirm some of those issues. I then came up with feature ideas around those
+problems, such as making room availability easier to see and simplifying how
+students move between rooms and bookings.
+
+That changed the direction of the redesign. Instead of only making the
+existing system look cleaner, I started thinking more about the question a
+student would actually have: “Where can I find an available room right now?”
+That became more important than simply restyling the original interface.
 
 ## What did this work change about who I want to be as a software developer?
 
-That I can't let the AI make the decisions. It will build whatever I describe,
-but the first version was basic and not clean, and it took a lot of prompting
-before the UI was something I'd show anyone. It never volunteered that the
-features were the real problem — I had to send it looking. It's good at
-producing options; choosing between them, and noticing when the whole
-direction is wrong, is the part I have to own.
+That I can't let the AI make the decisions. The agent was useful for checking
+the existing system, generating options, and helping build the interface, but
+I still had to decide what was actually worth changing.
+
+The first version was functional, but it was basic and needed a lot of
+direction before it became something I was happy with. I want to be the kind
+of developer who uses AI as a tool, but still takes responsibility for the
+design decisions, user needs, and overall direction of the product.
