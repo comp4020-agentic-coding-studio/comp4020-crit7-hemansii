@@ -32,73 +32,141 @@ export const db = drizzle(client);
 // commit the migration it writes to drizzle/.
 migrate(db, { migrationsFolder: "./drizzle" });
 
-// A handful of example bookings so the app never demos as an empty timetable.
+// Example bookings, so nobody's first look at the app is an empty timetable.
 // Dates can't live in the static seed migration (they'd be frozen at the day
-// the migration was written), so this runs at boot instead. It only ever
-// touches "today", which none of the booking spec's scenarios go near — they
-// all book relative future days — so it can't collide with a test run.
-function seedExampleBookings(): void {
-  const now = libraryNow();
-  const today = now.date;
+// the migration was written), so this runs at boot instead.
+//
+// The one hard constraint: spec/booking.test.ts books relative future days 1
+// to 10, always between 08:00 and 16:00, and two of its scenarios assert
+// exactly which stretches of those days are free. So demo data for future
+// days is confined to the evening, which the spec never books into. Today is
+// unrestricted — no scenario touches day 0.
+const DEMO_ACCOUNTS = [
+  "a.silvestri",
+  "j.wong",
+  "t.okafor",
+  "p.raghavan",
+  "l.demarco",
+  "h.nguyen",
+  "m.fitzgerald",
+  "c.baptiste",
+].map((name) => `${name}@anu.edu.au`);
 
-  // Guarded on today rather than on the table being empty: the examples are
-  // anchored to the current day, so yesterday's would leave a first look at
-  // the app showing nothing at all. A booking that lapsed unclaimed isn't
-  // holding its room any more, so it doesn't count as the day being in use —
-  // the same test the rest of the app applies.
-  const holdingToday = liveBookings(
-    db
-      .select({
-        date: bookings.date,
-        startTime: bookings.startTime,
-        endTime: bookings.endTime,
-        checkedInAt: bookings.checkedInAt,
-      })
-      .from(bookings)
-      .where(eq(bookings.date, today))
-      .all(),
-    today,
-    now.minutes,
-  );
-  if (holdingToday.length > 0) return;
+const EVENING = 17 * 60;
 
-  // The demo accounts persist across days, so look them up before inserting —
-  // users.email is unique and a second insert would throw.
-  const demoUser = (email: string): User =>
-    db.select().from(users).where(eq(users.email, email)).get() ??
-    db.insert(users).values({ email, passwordHash: "seed:not-a-real-account" }).returning().get();
+// Deterministic rather than random: a fixed rota reads as a plausible week and
+// stays the same between restarts, so a demo doesn't reshuffle under you.
+const EVENING_ROTA: Example[][] = [
+  [
+    { roomId: 2, start: EVENING, end: EVENING + 60 },
+    { roomId: 5, start: EVENING + 120, end: EVENING + 210 },
+  ],
+  [
+    { roomId: 4, start: EVENING + 30, end: EVENING + 120 },
+    { roomId: 1, start: EVENING + 180, end: EVENING + 240 },
+  ],
+  [{ roomId: 6, start: EVENING + 60, end: EVENING + 150 }],
+  [
+    { roomId: 3, start: EVENING, end: EVENING + 90 },
+    { roomId: 6, start: EVENING + 120, end: EVENING + 180 },
+  ],
+  [{ roomId: 5, start: EVENING + 90, end: EVENING + 180 }],
+  [
+    { roomId: 1, start: EVENING, end: EVENING + 60 },
+    { roomId: 4, start: EVENING + 150, end: EVENING + 240 },
+  ],
+];
 
-  // Anchor the examples to whenever the app first booted rather than to fixed
-  // clock times: a booking seeded at 10:00 has already lapsed by lunchtime,
-  // which would leave a first look at the app showing an empty day. Backing
-  // off the closing time keeps the later examples inside opening hours.
-  const halfHour = Math.round(now.minutes / SLOT_MINUTES) * SLOT_MINUTES;
-  const anchor = Math.min(Math.max(halfHour, OPENING_MINUTES + 60), CLOSING_MINUTES - 240);
+type Example = { roomId: number; start: number; end: number; checkedIn?: boolean };
 
-  const examples = [
-    // Running now and claimed — the state the room list reports as busy.
-    { roomId: 4, start: anchor - 30, end: anchor + 60, checkedIn: true },
-    // Still to come.
-    { roomId: 5, start: anchor + 90, end: anchor + 180, checkedIn: false },
-    { roomId: 3, start: anchor + 120, end: anchor + 180, checkedIn: false },
-    // Never claimed, so it has already been handed back to everyone else.
-    { roomId: 2, start: anchor - 120, end: anchor - 60, checkedIn: false },
-  ];
+const addDays = (iso: string, days: number): string => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
 
+// The demo accounts persist across days, so look one up before inserting:
+// users.email is unique and a second insert would throw.
+const demoUser = (email: string): User =>
+  db.select().from(users).where(eq(users.email, email)).get() ??
+  db.insert(users).values({ email, passwordHash: "seed:not-a-real-account" }).returning().get();
+
+/** One demo account per booking on a given day, so no seeded account is ever
+    over the 2-hour daily cap its own rules would impose on a real student. */
+function insertExamples(date: string, examples: Example[]): void {
   examples.forEach((example, i) => {
     if (example.start < OPENING_MINUTES || example.end > CLOSING_MINUTES) return;
-    const user = demoUser(`demo${i + 1}@anu.edu.au`);
     db.insert(bookings)
       .values({
         roomId: example.roomId,
-        userId: user.id,
-        date: today,
+        userId: demoUser(DEMO_ACCOUNTS[i % DEMO_ACCOUNTS.length]).id,
+        date,
         startTime: toTime(example.start),
         endTime: toTime(example.end),
-        checkedInAt: example.checkedIn ? sql`(datetime('now'))` : null,
+        checkedInAt: example.checkedIn ? sql`(datetime(\'now\'))` : null,
       })
       .run();
   });
+}
+
+const hasBookingsOn = (date: string): boolean =>
+  db.select({ id: bookings.id }).from(bookings).where(eq(bookings.date, date)).limit(1).all()
+    .length > 0;
+
+function seedToday(now: ReturnType<typeof libraryNow>): void {
+  const rows = db
+    .select({
+      date: bookings.date,
+      startTime: bookings.startTime,
+      endTime: bookings.endTime,
+      checkedInAt: bookings.checkedInAt,
+    })
+    .from(bookings)
+    .where(eq(bookings.date, now.date))
+    .all();
+  // A booking that lapsed unclaimed isn't holding its room any more, so it
+  // doesn't count as the day being in use — the same test the rest of the app
+  // applies. Without this, yesterday's demo data would suppress today's.
+  if (liveBookings(rows, now.date, now.minutes).length > 0) return;
+
+  // Anchored to whenever the app booted rather than to fixed clock times: a
+  // booking seeded at 10:00 has already lapsed by lunchtime. The clamp keeps
+  // every offset below inside opening hours.
+  const halfHour = Math.round(now.minutes / SLOT_MINUTES) * SLOT_MINUTES;
+  const anchor = Math.min(
+    Math.max(halfHour, OPENING_MINUTES + 120),
+    CLOSING_MINUTES - 240,
+  );
+
+  insertExamples(now.date, [
+    // Running and claimed — what the room list reports as busy.
+    { roomId: 4, start: anchor - 30, end: anchor + 60, checkedIn: true },
+    // Butts onto the one above, so "busy until" reports the end of the run
+    // rather than teasing a free half hour that isn't there.
+    { roomId: 4, start: anchor + 60, end: anchor + 120 },
+    { roomId: 6, start: anchor, end: anchor + 90, checkedIn: true },
+    // Still to come.
+    { roomId: 1, start: anchor + 30, end: anchor + 90 },
+    { roomId: 5, start: anchor + 90, end: anchor + 180 },
+    { roomId: 3, start: anchor + 120, end: anchor + 180 },
+    // Never claimed, so it has already been handed back to everyone else and
+    // room 2 reads as free.
+    { roomId: 2, start: anchor - 120, end: anchor - 60 },
+  ]);
+}
+
+function seedComingEvenings(today: string): void {
+  EVENING_ROTA.forEach((examples, i) => {
+    const date = addDays(today, i + 1);
+    if (hasBookingsOn(date)) return;
+    insertExamples(date, examples);
+  });
+}
+
+function seedExampleBookings(): void {
+  const now = libraryNow();
+  seedToday(now);
+  seedComingEvenings(now.date);
 }
 seedExampleBookings();
 
