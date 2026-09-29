@@ -1,54 +1,41 @@
 # Process overview
 
-<!-- TEMPLATE: this file is a shape to fill in, not a form. Replace everything
-     in it with your own overview, and delete this comment — `pnpm
-     check:evidence` will remind you if it's still here. -->
-
-Written by you, for a reader: how you got from the brief to the harness and
-agentic workflow behind this submission. Markers read this file and follow its
-citations; they don't trawl the repo for evidence you didn't point at.
-
-This file is the shape; the course site's
-[assessment page](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#what-you-submit)
-is the requirement, and its
-[word counts](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#word-counts)
-cover every deliverable.
-
 ## What I built
 
-A sentence or two. `README.md` is where the account of what the app is and what
-good means here lives; this file is how you got there.
+A study-room booking system for ANU Library that leads with live availability
+instead of making you check rooms one at a time. `README.md` says what it is;
+this is how I got there.
 
 ## How I got here
 
-The account of the process: how the work actually went, and how you knew the
-result was right. Tell it in whatever order makes it clear. A weekly prototype
-needs a paragraph or two; an assignment needs more.
+I replaced the starter's guestbook with the booking domain in one pass — schema,
+`@anu.edu.au` auth, the booking rules as a pure function, and a spec driving
+them over HTTP
+([`674bf3a`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-hemansii/commit/674bf3a)).
+Then five commits iterating on how it looked
+([`4ac2866...4b1580a`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-hemansii/compare/4ac2866...4b1580a)),
+each one me pushing back on something specific.
 
-Cite the record as you go, as links whose text is the commit hash or range and
-whose target is this repo's commit or compare URL, so a reader clicks straight
-to the evidence:
+The turn came when I stopped asking for it to look better and asked what it
+should do:
 
-- one commit: [`a1b2c3d`](https://github.com/YOUR-ORG/YOUR-REPO/commit/a1b2c3d)
-- a range:
-  [`a1b2c3d...e4f5a6b`](https://github.com/YOUR-ORG/YOUR-REPO/compare/a1b2c3d...e4f5a6b)
+> refer to how the already exisiting anu library room booking system works,
+> come up with new and helpful features
 
-To pair a prompt with the commit it produced, quote the prompt (curated, not a
-full transcript) next to the citation:
+Researching the real LibCal site surfaced three things I hadn't known:
+availability sits entirely behind SSO, rooms are siloed across four branch grids
+with no view between them, and a booking is managed only through the email that
+confirmed it. That reframed the work from prettier to answering the question the
+real one can't, and the features fell out of it — public browsing, an all-rooms
+day grid, click-to-book, and check-in enforcing the 15-minute lapse rule the
+real library only prints on a sign
+([`c89fe97`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-hemansii/commit/c89fe97)).
 
-> the prompt, verbatim
+Two bugs no test caught: a UTC container put "today" on the wrong day, and
+checking in early silently blocked extending. Both were about *when*, so the
+availability logic moved into a pure state machine unit-tested against a fixed
+clock — 57 tests to 101.
 
-Screenshots are welcome where one carries the point better than a sentence does.
-Commit the file to this repo and link it with a **relative** path, which is what
-makes it render on GitHub: `![alt text](docs/before.png)`. Images don't count
-towards the word count and don't replace the citation.
-
-## Before you ship
-
-`pnpm check:evidence` verifies that this comment is gone, that your citations
-resolve to real commits, that a crit week's reflection entry is in
-`reflections/`, and that your `CLAUDE.md` is there. It checks that your account
-is traceable, not that it is good: that is the marker's call.
-
-Images aren't checked: unlike a citation whose SHA doesn't resolve, a broken
-image is visible the moment this file is rendered on GitHub.
+I also assumed the agent could see the deployed page. It can't. Once that was
+explicit, I described what looked wrong and it verified the fix reached the
+page.
