@@ -1,41 +1,161 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import {
+  CURRENT_STATES,
+  bookingState,
+  formatDuration,
+  libraryNow,
+  quotaUsed,
+  toMinutes,
+} from "../lib/availability";
 import { getSessionUser } from "../lib/auth";
 import { listUpcomingBookingsForUser } from "../lib/db";
 
 const user = getSessionUser(Astro.cookies);
 if (!user) return Astro.redirect("/login?next=/bookings", 303);
 
-const today = new Date().toISOString().slice(0, 10);
-const upcoming = listUpcomingBookingsForUser(user.id, today);
+const now = libraryNow();
+const error = Astro.url.searchParams.get("error");
+
+// The real service has no self-service list at all — a booking is managed
+// through the link in its confirmation email, and losing the email means
+// emailing a human. Everything you can do to a booking lives on this page
+// instead: claim it, stretch it, or give it back.
+const ERRORS: Record<string, string> = {
+  "not-yours": "That booking isn't yours.",
+  "checkin-window": "Check-in opens 15 minutes before your booking and closes 15 minutes after it starts.",
+  "extend-window": "You can only extend a booking that's running.",
+  "extend-hours": "The library closes at 22:00.",
+  "extend-taken": "The next half hour is already booked.",
+  "extend-cap": "That would put you over your 2 hours for the day.",
+};
+
+const upcoming = listUpcomingBookingsForUser(user.id, now.date);
+const withState = upcoming.map((booking) => ({
+  ...booking,
+  state: bookingState(booking, now.date, now.minutes),
+  minutes: toMinutes(booking.endTime) - toMinutes(booking.startTime),
+}));
+
+const live = withState.filter((booking) => booking.state !== "released");
+const today = live.filter((booking) => booking.date === now.date);
+const later = live.filter((booking) => booking.date > now.date);
+const lapsed = withState.filter((booking) => booking.state === "released");
+
+const quota = quotaUsed(today.filter((booking) => booking.state !== "finished"));
+
+const STATE_LABEL: Record<string, string> = {
+  upcoming: "Upcoming",
+  "check-in-open": "Check in now",
+  claimed: "Checked in",
+  "in-progress": "In progress",
+  finished: "Finished",
+  released: "Released",
+};
+
+const groups = [
+  { title: "Today", items: today, empty: "Nothing booked for today." },
+  { title: "Later", items: later, empty: "Nothing booked further out." },
+];
 ---
 
 <Layout title="My bookings" active="bookings">
   <h1>My bookings</h1>
+  <p class="lede">
+    Signed in as {user.email}. {formatDuration(quota.remainingMinutes)} of your daily 2 hours is still
+    free today.
+  </p>
+
+  {error && <p class="form-error" role="alert">{ERRORS[error] ?? "That didn't work."}</p>}
+
+  {
+    groups.map((group) => (
+      <div class="section">
+        <h2>{group.title}</h2>
+        {group.items.length === 0 ? (
+          <p class="empty-state">
+            {group.empty} <a href="/">Find a room</a>.
+          </p>
+        ) : (
+          <ul class="booking-list">
+            {group.items.map((booking) => (
+              <li class="booking-row" data-state={booking.state}>
+                <div class="booking-row-main">
+                  <span class="booking-row-room">
+                    <a href={`/rooms/${booking.roomId}/?date=${booking.date}`}>{booking.roomName}</a>
+                  </span>
+                  <span class="booking-row-when">
+                    {booking.date === now.date ? "Today" : booking.date}, {booking.startTime}–
+                    {booking.endTime} · {formatDuration(booking.minutes)}
+                  </span>
+                </div>
+                <span class="state-pill" data-state={booking.state}>
+                  {STATE_LABEL[booking.state]}
+                </span>
+                <div class="booking-row-actions">
+                  {booking.state === "check-in-open" && (
+                    <form method="post" action="/api/bookings/checkin" class="inline-form">
+                      <input type="hidden" name="id" value={booking.id} />
+                      <button class="btn-primary">Check in</button>
+                    </form>
+                  )}
+                  {CURRENT_STATES.includes(booking.state) && (
+                    <form method="post" action="/api/bookings/extend" class="inline-form">
+                      <input type="hidden" name="id" value={booking.id} />
+                      <button class="btn-secondary">+30 min</button>
+                    </form>
+                  )}
+                  {booking.state !== "finished" && (
+                    <form method="post" action="/api/bookings/cancel" class="inline-form">
+                      <input type="hidden" name="id" value={booking.id} />
+                      <button class="btn-secondary btn-danger">Cancel</button>
+                    </form>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    ))
+  }
+
+  {
+    lapsed.length > 0 && (
+      <div class="section">
+        <h2>Released</h2>
+        <p class="notice">
+          These weren't checked into within 15 minutes of starting, so the rooms went back into the
+          pool for everyone else.
+        </p>
+        <ul class="booking-list">
+          {lapsed.map((booking) => (
+            <li class="booking-row" data-state="released">
+              <div class="booking-row-main">
+                <span class="booking-row-room">{booking.roomName}</span>
+                <span class="booking-row-when">
+                  {booking.date === now.date ? "Today" : booking.date}, {booking.startTime}–
+                  {booking.endTime}
+                </span>
+              </div>
+              <span class="state-pill" data-state="released">
+                Released
+              </span>
+              <div class="booking-row-actions">
+                <a class="btn-secondary" href={`/rooms/${booking.roomId}/?date=${booking.date}`}>
+                  Rebook
+                </a>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
   <p class="account-line">
-    Signed in as {user.email}.
     <form method="post" action="/api/logout" class="inline-form">
       <button class="btn-secondary">Log out</button>
     </form>
   </p>
-
-  {
-    upcoming.length === 0 ? (
-      <p class="empty-state">No upcoming bookings — browse rooms to book a slot.</p>
-    ) : (
-      <ul id="upcoming-bookings">
-        {upcoming.map((b) => (
-          <li>
-            <span>
-              <strong>{b.roomName}</strong> · {b.date}, {b.startTime}–{b.endTime}
-            </span>
-            <form method="post" action="/api/bookings/cancel" class="inline-form">
-              <input type="hidden" name="id" value={b.id} />
-              <button class="btn-secondary">Cancel</button>
-            </form>
-          </li>
-        ))}
-      </ul>
-    )
-  }
 </Layout>

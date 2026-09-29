@@ -59,6 +59,11 @@ export const bookings = sqliteTable(
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),
+    // Null until the holder claims the room. The real library's rule is that
+    // a booking is cancelled if you're more than 15 minutes late, but it's
+    // only enforced by asking people to leave; storing the claim lets the app
+    // enforce it directly and hand an unclaimed room back to everyone else.
+    checkedInAt: text("checked_in_at"),
   },
   (t) => [index("bookings_room_date_idx").on(t.roomId, t.date)],
 );

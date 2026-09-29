@@ -21,6 +21,20 @@
   --warn-border: #e8c265;
   --warn-text: #6b4a00;
 
+  /* Availability — green reads "go", amber "wait", grey "shut". Each pairs a
+     tint for fills with a darker ink that clears AA on that tint. */
+  --free-bg: #e7f5ec;
+  --free-border: #8fc9a6;
+  --free-ink: #1b6b41;
+  --busy-bg: #fdeee3;
+  --busy-border: #e8b48a;
+  --busy-ink: #8a4a18;
+  --shut-bg: #eef1f4;
+  --shut-border: #c3ccd4;
+  --shut-ink: #5a6675;
+  --danger-ink: #a12c2c;
+  --danger-border: #e0a5a5;
+
   /* Scale */
   --radius-sm: 0.4rem;
   --radius: 0.7rem;
@@ -238,6 +252,126 @@ hr.divider {
   padding: 1.4rem;
 }
 
+/* ---------- Status pills ---------- */
+
+.status-pill,
+.state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-pill[data-state="free"],
+.state-pill[data-state="claimed"],
+.state-pill[data-state="in-progress"] {
+  background: var(--free-bg);
+  border-color: var(--free-border);
+  color: var(--free-ink);
+}
+
+.status-pill[data-state="busy"],
+.state-pill[data-state="check-in-open"] {
+  background: var(--busy-bg);
+  border-color: var(--busy-border);
+  color: var(--busy-ink);
+}
+
+.status-pill[data-state="closed"],
+.state-pill[data-state="upcoming"],
+.state-pill[data-state="finished"] {
+  background: var(--shut-bg);
+  border-color: var(--shut-border);
+  color: var(--shut-ink);
+}
+
+.state-pill[data-state="released"] {
+  background: var(--surface);
+  border-color: var(--danger-border);
+  color: var(--danger-ink);
+}
+
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1.5rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* ---------- Filters ---------- */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem 1rem;
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-bottom: 0.55rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.check input {
+  min-width: 0;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+
+.filters-clear {
+  padding-bottom: 0.7rem;
+  font-size: 0.88rem;
+}
+
+.page-hint {
+  margin-top: 1.5rem;
+  color: var(--muted-2);
+  font-size: 0.9rem;
+}
+
+.backlink {
+  display: inline-block;
+  margin-bottom: 0.6rem;
+  color: var(--muted-2);
+  font-size: 0.86rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.backlink:hover {
+  color: var(--brand-bright);
+}
+
 /* ---------- Room grid ---------- */
 
 #rooms {
@@ -245,39 +379,42 @@ hr.divider {
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 0.85rem;
 }
 
 #rooms li {
   margin: 0;
-  /* All cards share this height rather than sizing to content — with a
-     single fixed-length meta line per card (see .room-meta), nothing is
-     left empty inside it. */
   height: 100%;
 }
 
 .room-card {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 0.3rem;
+  gap: 0.35rem;
   height: 100%;
-  min-height: 5rem;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 4px solid var(--shut-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 0.9rem 1.1rem;
+  padding: 1rem 1.15rem;
   text-decoration: none;
   cursor: pointer;
   transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
 
+.room-card[data-state="free"] {
+  border-left-color: var(--free-border);
+}
+
+.room-card[data-state="busy"] {
+  border-left-color: var(--busy-border);
+}
+
 .room-card:hover,
 .room-card:focus-visible {
   box-shadow: var(--shadow-hover);
-  border-color: var(--accent);
   transform: translateY(-2px);
 }
 
@@ -286,8 +423,15 @@ hr.divider {
   outline-offset: 2px;
 }
 
+.room-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .room-name {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1.02rem;
   color: var(--brand-dark);
 }
@@ -301,9 +445,26 @@ hr.divider {
   font-size: 0.85rem;
 }
 
+.room-status {
+  margin-top: 0.15rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.room-status-next {
+  color: var(--muted-2);
+  font-weight: 500;
+}
+
+.room-free-left {
+  color: var(--muted-2);
+  font-size: 0.8rem;
+}
+
 /* ---------- Date navigation ---------- */
 
-#date-nav {
+.date-nav {
   display: flex;
   gap: 0.55rem;
   padding: 0.2rem 0.2rem 0.7rem;
@@ -313,7 +474,7 @@ hr.divider {
   scrollbar-width: thin;
 }
 
-#date-nav li {
+.date-nav li {
   flex: 0 0 auto;
 }
 
@@ -506,6 +667,264 @@ hr.divider {
   font-size: 0.88rem;
 }
 
+/* Free stretches sit under the booked blocks in the same track, so a booking
+   always wins the pixels it covers even if the two ever disagree. */
+.timetable-open {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px dashed var(--free-border);
+  border-radius: var(--radius-sm);
+  background: var(--free-bg);
+  color: var(--free-ink);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.timetable-open.is-static {
+  cursor: default;
+  opacity: 0.75;
+}
+
+button.timetable-open:hover {
+  background: #d9eee2;
+  border-style: solid;
+  border-color: var(--free-ink);
+}
+
+button.timetable-open:focus-visible {
+  outline: 2px solid var(--brand-bright);
+  outline-offset: 2px;
+}
+
+.timetable-open-label {
+  font-weight: 600;
+}
+
+.timetable-open-cta {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+button.timetable-open:hover .timetable-open-cta,
+button.timetable-open:focus-visible .timetable-open-cta {
+  opacity: 1;
+}
+
+.timetable-bookings {
+  position: absolute;
+  inset: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- All-rooms day grid ---------- */
+
+.daygrid-scroll {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.daygrid {
+  min-width: 46rem;
+  padding: 0.9rem 1.1rem 1.1rem;
+}
+
+.daygrid-head,
+.daygrid-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.8rem;
+}
+
+.daygrid-head {
+  padding-bottom: 0.35rem;
+}
+
+.daygrid-label {
+  flex: 0 0 9rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.05rem;
+  font-size: 0.86rem;
+}
+
+.daygrid-label a {
+  color: var(--brand-dark);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.daygrid-label a:hover {
+  color: var(--brand-bright);
+  text-decoration: underline;
+}
+
+.daygrid-seats {
+  color: var(--muted-2);
+  font-size: 0.76rem;
+}
+
+.daygrid-axis {
+  position: relative;
+  flex: 1;
+  height: 1.1rem;
+}
+
+.daygrid-hour {
+  position: absolute;
+  transform: translateX(-50%);
+  color: var(--muted-2);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.daygrid-row {
+  padding-block: 0.25rem;
+}
+
+.daygrid-track {
+  position: relative;
+  flex: 1;
+  height: 2.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.daygrid-lines {
+  position: absolute;
+  inset: 0;
+}
+
+.daygrid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--border);
+}
+
+.daygrid-gap,
+.daygrid-booked {
+  position: absolute;
+  top: 0.2rem;
+  bottom: 0.2rem;
+  display: flex;
+  align-items: center;
+  padding-inline: 0.4rem;
+  border: 1px solid;
+  border-radius: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.daygrid-gap {
+  background: var(--free-bg);
+  border-color: var(--free-border);
+  color: var(--free-ink);
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+
+.daygrid-gap:hover {
+  background: #d3ebdd;
+  border-color: var(--free-ink);
+}
+
+.daygrid-gap:focus-visible {
+  outline: 2px solid var(--brand-bright);
+  outline-offset: 1px;
+}
+
+.daygrid-booked {
+  background: var(--slot-0-bg);
+  border-color: var(--slot-0-border);
+  color: var(--slot-0-text);
+}
+
+.daygrid-booked[data-tone="1"] {
+  background: var(--slot-1-bg);
+  border-color: var(--slot-1-border);
+  color: var(--slot-1-text);
+}
+
+.daygrid-booked[data-tone="2"] {
+  background: var(--slot-2-bg);
+  border-color: var(--slot-2-border);
+  color: var(--slot-2-text);
+}
+
+.daygrid-booked[data-tone="3"] {
+  background: var(--slot-3-bg);
+  border-color: var(--slot-3-border);
+  color: var(--slot-3-text);
+}
+
+.daygrid-booked[data-tone="4"] {
+  background: var(--slot-4-bg);
+  border-color: var(--slot-4-border);
+  color: var(--slot-4-text);
+}
+
+.daygrid-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--muted-2);
+  font-size: 0.8rem;
+}
+
+.legend-key {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 1px solid;
+  border-radius: 0.2rem;
+}
+
+.legend-key[data-kind="free"] {
+  background: var(--free-bg);
+  border-color: var(--free-border);
+}
+
+.legend-key[data-kind="booked"] {
+  background: var(--slot-0-bg);
+  border-color: var(--slot-0-border);
+}
+
+.legend-key + .legend-key {
+  margin-left: 0.6rem;
+}
+
 .booking-dialog {
   border: none;
   border-radius: var(--radius-lg);
@@ -581,27 +1000,85 @@ hr.divider {
   margin-top: 0.25rem;
 }
 
-/* ---------- Upcoming bookings list ---------- */
+/* ---------- My bookings list ---------- */
 
-#upcoming-bookings {
+.booking-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.6rem;
 }
 
-#upcoming-bookings li {
+.booking-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  padding: 0.85rem 1.1rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.7rem 1rem;
+  border-left: 4px solid var(--shut-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.booking-row[data-state="check-in-open"] {
+  border-left-color: var(--busy-border);
+}
+
+.booking-row[data-state="claimed"],
+.booking-row[data-state="in-progress"] {
+  border-left-color: var(--free-border);
+}
+
+.booking-row[data-state="released"] {
+  border-left-color: var(--danger-border);
+}
+
+.booking-row-main {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  font-size: 0.94rem;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-right: auto;
+  min-width: 12rem;
+}
+
+.booking-row-room {
+  font-weight: 700;
+  color: var(--brand-dark);
+}
+
+.booking-row-room a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.booking-row-room a:hover {
+  color: var(--brand-bright);
+  text-decoration: underline;
+}
+
+.booking-row-when {
+  color: var(--muted-2);
+  font-size: 0.86rem;
+}
+
+.booking-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.booking-row-actions .inline-form {
+  margin: 0;
+}
+
+.booking-row-actions button,
+.booking-row-actions .btn-secondary {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
 }
 
 .empty-state {
@@ -611,6 +1088,48 @@ hr.divider {
   text-align: center;
   color: var(--muted-2);
   background: var(--surface);
+}
+
+.notice {
+  margin: 0 0 0.9rem;
+  padding: 0.65rem 0.95rem;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 0.88rem;
+}
+
+.form-error {
+  margin: 0 0 0.25rem;
+  padding: 0.65rem 0.95rem;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-sm);
+  background: #fdf1f1;
+  color: var(--danger-ink);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.booking-duration {
+  margin: 0;
+  min-height: 1.2rem;
+  color: var(--muted-2);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+/* Visible to a screen reader, not on screen — the day grid's blocks are too
+   small for their full text, so the readable version lives here. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---------- Forms ---------- */
@@ -720,6 +1239,25 @@ button:focus-visible {
   background: var(--surface-sunken);
   border-color: var(--brand-bright);
   color: var(--brand-bright);
+}
+
+.btn-danger {
+  color: var(--danger-ink);
+}
+
+.btn-danger:hover {
+  background: #fdf1f1;
+  border-color: var(--danger-ink);
+  color: var(--danger-ink);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  background: var(--brand);
 }
 
 /* Same look as the default <button>, but usable on an <a> too — the

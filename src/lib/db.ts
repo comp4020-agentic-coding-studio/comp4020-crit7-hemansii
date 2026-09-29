@@ -1,9 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { CLOSING_MINUTES, OPENING_MINUTES, SLOT_MINUTES, libraryNow, toTime } from "./availability";
 import { type Booking, type Room, type User, bookings, rooms, users } from "./schema";
 
 // One SQLite file is the app's whole persistent state. In production
@@ -34,23 +35,44 @@ migrate(db, { migrationsFolder: "./drizzle" });
 function seedExampleBookings(): void {
   if (db.select({ id: bookings.id }).from(bookings).limit(1).all().length > 0) return;
 
-  const demoUser = db
-    .insert(users)
-    .values({ email: "demo@anu.edu.au", passwordHash: "seed:not-a-real-account" })
-    .returning()
-    .get();
+  const now = libraryNow();
+  const today = now.date;
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Anchor the examples to whenever the app first booted rather than to fixed
+  // clock times: a booking seeded at 10:00 has already lapsed by lunchtime,
+  // which would leave a first look at the app showing an empty day. Backing
+  // off the closing time keeps the later examples inside opening hours.
+  const halfHour = Math.round(now.minutes / SLOT_MINUTES) * SLOT_MINUTES;
+  const anchor = Math.min(Math.max(halfHour, OPENING_MINUTES + 60), CLOSING_MINUTES - 240);
+
   const examples = [
-    { roomId: 3, startTime: "10:00", endTime: "11:30" },
-    { roomId: 4, startTime: "13:00", endTime: "14:00" },
-    { roomId: 5, startTime: "15:30", endTime: "17:00" },
+    // Running now and claimed — the state the room list reports as busy.
+    { roomId: 4, start: anchor - 30, end: anchor + 60, checkedIn: true },
+    // Still to come.
+    { roomId: 5, start: anchor + 90, end: anchor + 180, checkedIn: false },
+    { roomId: 3, start: anchor + 120, end: anchor + 180, checkedIn: false },
+    // Never claimed, so it has already been handed back to everyone else.
+    { roomId: 2, start: anchor - 120, end: anchor - 60, checkedIn: false },
   ];
-  for (const example of examples) {
+
+  examples.forEach((example, i) => {
+    if (example.start < OPENING_MINUTES || example.end > CLOSING_MINUTES) return;
+    const user = db
+      .insert(users)
+      .values({ email: `demo${i + 1}@anu.edu.au`, passwordHash: "seed:not-a-real-account" })
+      .returning()
+      .get();
     db.insert(bookings)
-      .values({ ...example, date: today, userId: demoUser.id })
+      .values({
+        roomId: example.roomId,
+        userId: user.id,
+        date: today,
+        startTime: toTime(example.start),
+        endTime: toTime(example.end),
+        checkedInAt: example.checkedIn ? sql`(datetime('now'))` : null,
+      })
       .run();
-  }
+  });
 }
 seedExampleBookings();
 
@@ -72,24 +94,53 @@ export function createUser(email: string, passwordHash: string): User {
   return db.insert(users).values({ email, passwordHash }).returning().get();
 }
 
-export function listBookingsForRoomOnDate(
-  roomId: number,
-  date: string,
-): { id: number; startTime: string; endTime: string }[] {
+// Everything that reasons about availability needs `date` and `checkedInAt`
+// as well as the times: a booking nobody claimed stops holding its room (see
+// holdsRoom in src/lib/availability.ts), and that can only be worked out with
+// the day it was for and whether it was ever checked into.
+export type ScheduleEntry = {
+  id: number;
+  roomId: number;
+  userId: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  checkedInAt: string | null;
+};
+
+const scheduleColumns = {
+  id: bookings.id,
+  roomId: bookings.roomId,
+  userId: bookings.userId,
+  date: bookings.date,
+  startTime: bookings.startTime,
+  endTime: bookings.endTime,
+  checkedInAt: bookings.checkedInAt,
+};
+
+export function listBookingsForRoomOnDate(roomId: number, date: string): ScheduleEntry[] {
   return db
-    .select({ id: bookings.id, startTime: bookings.startTime, endTime: bookings.endTime })
+    .select(scheduleColumns)
     .from(bookings)
     .where(and(eq(bookings.roomId, roomId), eq(bookings.date, date)))
     .orderBy(asc(bookings.startTime))
     .all();
 }
 
-export function listBookingsForUserOnDate(
-  userId: number,
-  date: string,
-): { startTime: string; endTime: string }[] {
+/** Every room's bookings for one day, for the all-rooms grid and the room
+    list's live status — one query rather than one per room. */
+export function listBookingsOnDate(date: string): ScheduleEntry[] {
   return db
-    .select({ startTime: bookings.startTime, endTime: bookings.endTime })
+    .select(scheduleColumns)
+    .from(bookings)
+    .where(eq(bookings.date, date))
+    .orderBy(asc(bookings.startTime))
+    .all();
+}
+
+export function listBookingsForUserOnDate(userId: number, date: string): ScheduleEntry[] {
+  return db
+    .select(scheduleColumns)
     .from(bookings)
     .where(and(eq(bookings.userId, userId), eq(bookings.date, date)))
     .all();
@@ -108,6 +159,7 @@ export function listUpcomingBookingsForUser(
       startTime: bookings.startTime,
       endTime: bookings.endTime,
       createdAt: bookings.createdAt,
+      checkedInAt: bookings.checkedInAt,
       roomName: rooms.name,
     })
     .from(bookings)
@@ -138,4 +190,26 @@ export function cancelBooking(id: number, userId: number): boolean {
     .where(and(eq(bookings.id, id), eq(bookings.userId, userId)))
     .run();
   return result.changes > 0;
+}
+
+/** Claims a booking for its holder. Idempotent: checking in twice keeps the
+    first timestamp, so a double-click can't move the record. */
+export function checkInBooking(id: number, userId: number): Booking | undefined {
+  return db
+    .update(bookings)
+    .set({ checkedInAt: sql`(datetime('now'))` })
+    .where(and(eq(bookings.id, id), eq(bookings.userId, userId), isNull(bookings.checkedInAt)))
+    .returning()
+    .get();
+}
+
+/** Pushes a booking's end time out. The caller is responsible for checking
+    the new end is free, within hours, and inside the holder's daily cap. */
+export function extendBooking(id: number, userId: number, endTime: string): Booking | undefined {
+  return db
+    .update(bookings)
+    .set({ endTime })
+    .where(and(eq(bookings.id, id), eq(bookings.userId, userId)))
+    .returning()
+    .get();
 }

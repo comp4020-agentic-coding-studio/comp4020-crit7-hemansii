@@ -1,0 +1,180 @@
+---
+import DateNav from "../components/DateNav.astro";
+import Layout from "../layouts/Layout.astro";
+import {
+  CLOSING_MINUTES,
+  OPENING_MINUTES,
+  SLOT_MINUTES,
+  formatDuration,
+  freeGaps,
+  libraryNow,
+  liveBookings,
+  toMinutes,
+} from "../lib/availability";
+import { CLOSING_TIME, OPENING_TIME } from "../lib/bookings";
+import { listBookingsOnDate, listRooms } from "../lib/db";
+
+// Every room's day on one grid. The real service splits its rooms across four
+// separate branch pages with no view across them, so finding a free slot means
+// checking each in turn; here one screen answers it, and every free stretch is
+// a link straight into booking that room at that time.
+const now = libraryNow();
+const date = Astro.url.searchParams.get("date") || now.date;
+const isToday = date === now.date;
+
+const rooms = listRooms();
+const dayBookings = listBookingsOnDate(date);
+const span = CLOSING_MINUTES - OPENING_MINUTES;
+const percent = (minutes: number) => ((minutes - OPENING_MINUTES) / span) * 100;
+
+// On today, a slot that has already started can't be booked, so gaps begin at
+// the next half hour rather than at opening.
+const bookableFrom = isToday
+  ? Math.ceil(Math.max(now.minutes, OPENING_MINUTES) / SLOT_MINUTES) * SLOT_MINUTES
+  : OPENING_MINUTES;
+
+const hourMarks = Array.from({ length: CLOSING_MINUTES / 60 - OPENING_MINUTES / 60 + 1 }, (_, i) => {
+  const hour = OPENING_MINUTES / 60 + i;
+  return { label: `${String(hour).padStart(2, "0")}`, left: percent(hour * 60) };
+});
+
+const lanes = rooms.map((room) => {
+  const booked = liveBookings(
+    dayBookings.filter((booking) => booking.roomId === room.id),
+    now.date,
+    now.minutes,
+  );
+  return {
+    room,
+    booked: booked.map((booking) => ({
+      ...booking,
+      left: percent(toMinutes(booking.startTime)),
+      width: ((toMinutes(booking.endTime) - toMinutes(booking.startTime)) / span) * 100,
+    })),
+    gaps: freeGaps(booked, bookableFrom).map((gap) => ({
+      ...gap,
+      left: percent(toMinutes(gap.startTime)),
+      width: ((toMinutes(gap.endTime) - toMinutes(gap.startTime)) / span) * 100,
+      minutes: toMinutes(gap.endTime) - toMinutes(gap.startTime),
+    })),
+  };
+});
+
+const totalFree = lanes.reduce(
+  (total, lane) => total + lane.gaps.reduce((sum, gap) => sum + gap.minutes, 0),
+  0,
+);
+const nowLeft = percent(now.minutes);
+const showNowLine = isToday && now.minutes >= OPENING_MINUTES && now.minutes <= CLOSING_MINUTES;
+---
+
+<Layout title="Day view" active="schedule">
+  <h1>Day view</h1>
+  <p class="lede">
+    Every room, one day. Click any open stretch to book it.
+    {totalFree > 0 && ` ${formatDuration(totalFree)} still free across all rooms.`}
+  </p>
+
+  <DateNav basePath="/schedule" date={date} today={now.date} />
+
+  <div class="section">
+    <div class="section-header">
+      <h2>{isToday ? "Today" : date}</h2>
+      <p class="legend">
+        <span class="legend-key" data-kind="free"></span> Free
+        <span class="legend-key" data-kind="booked"></span> Booked
+      </p>
+    </div>
+
+    <div
+      class="daygrid-scroll"
+      role="group"
+      aria-label={`All rooms on ${date}, ${OPENING_TIME} to ${CLOSING_TIME}`}
+    >
+      <div class="daygrid">
+        <div class="daygrid-head">
+          <div class="daygrid-label" aria-hidden="true"></div>
+          <div class="daygrid-axis" aria-hidden="true">
+            {
+              hourMarks.map((mark) => (
+                <span class="daygrid-hour" style={`left:${mark.left}%`}>
+                  {mark.label}
+                </span>
+              ))
+            }
+          </div>
+        </div>
+
+        {
+          lanes.map((lane) => (
+            <div class="daygrid-row">
+              <div class="daygrid-label">
+                <a href={`/rooms/${lane.room.id}/?date=${date}`}>{lane.room.name}</a>
+                <span class="daygrid-seats">
+                  {lane.room.capacity} {lane.room.capacity === 1 ? "seat" : "seats"}
+                </span>
+              </div>
+              <div class="daygrid-track">
+                <div class="daygrid-lines" aria-hidden="true">
+                  {hourMarks.map((mark) => (
+                    <span class="daygrid-line" style={`left:${mark.left}%`} />
+                  ))}
+                </div>
+                {lane.gaps.map((gap) => (
+                  <a
+                    class="daygrid-gap"
+                    style={`left:${gap.left}%;width:${gap.width}%`}
+                    href={`/rooms/${lane.room.id}/?date=${date}&start=${gap.startTime}`}
+                    title={`Book ${lane.room.name} from ${gap.startTime}`}
+                  >
+                    <span class="visually-hidden">
+                      Book {lane.room.name} from {gap.startTime} to {gap.endTime}
+                    </span>
+                    <span aria-hidden="true">{gap.width > 9 ? gap.startTime : ""}</span>
+                  </a>
+                ))}
+                {lane.booked.map((booking) => (
+                  <span
+                    class="daygrid-booked"
+                    data-tone={String(booking.id % 5)}
+                    style={`left:${booking.left}%;width:${booking.width}%`}
+                    title={`Booked ${booking.startTime}–${booking.endTime}`}
+                  >
+                    <span class="visually-hidden">
+                      {lane.room.name} booked {booking.startTime} to {booking.endTime}
+                    </span>
+                    <span aria-hidden="true">{booking.width > 9 ? booking.startTime : ""}</span>
+                  </span>
+                ))}
+                {showNowLine && (
+                  <span class="daygrid-now" style={`left:${nowLeft}%`} aria-hidden="true" />
+                )}
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+    {
+      totalFree === 0 && (
+        <p class="timetable-note">
+          Nothing left on {isToday ? "today" : date}. Try another day above.
+        </p>
+      )
+    }
+  </div>
+
+  <script is:inline type="application/json" id="grid-config" set:html={JSON.stringify({ date })} />
+
+  <script>
+    // Same global SSE stream the room page listens to: any booking made for
+    // the day on screen changes this grid, so reload when one lands.
+    const { date }: { date: string } = JSON.parse(
+      document.getElementById("grid-config")?.textContent ?? "{}",
+    );
+    const source = new EventSource("/api/events");
+    source.addEventListener("message", (event) => {
+      if (JSON.parse(event.data).date === date) location.reload();
+    });
+  </script>
+</Layout>

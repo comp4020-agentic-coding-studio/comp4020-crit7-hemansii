@@ -1,0 +1,53 @@
+---
+// The 14-day strip shared by the room page and the day grid. Both link to
+// their own page with ?date=, so the component takes the path to build on.
+import { MAX_DAYS_AHEAD } from "../lib/bookings";
+
+export interface Props {
+  basePath: string;
+  date: string;
+  today: string;
+}
+
+const { basePath, date, today } = Astro.props;
+
+// Stepping through dates at UTC noon keeps the arithmetic clear of daylight
+// saving: adding a day can never land back on the same calendar date.
+const addDays = (iso: string, days: number): Date => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+};
+
+const dates = Array.from({ length: MAX_DAYS_AHEAD }, (_, i) => {
+  const d = addDays(today, i);
+  return {
+    iso: d.toISOString().slice(0, 10),
+    weekday: d.toLocaleDateString("en-AU", { weekday: "short", timeZone: "UTC" }),
+    day: d.getUTCDate(),
+    month: d.toLocaleDateString("en-AU", { month: "short", timeZone: "UTC" }),
+  };
+});
+
+const separator = basePath.includes("?") ? "&" : "?";
+---
+
+<nav aria-label="date">
+  <ul class="date-nav">
+    {
+      dates.map((d) => (
+        <li>
+          <a
+            class="date-pill"
+            href={`${basePath}${separator}date=${d.iso}`}
+            aria-current={d.iso === date ? "date" : undefined}
+          >
+            <span class="date-pill-dow">{d.iso === today ? "Today" : d.weekday}</span>
+            <span class="date-pill-day">{d.day}</span>
+            <span class="date-pill-month">{d.month}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>

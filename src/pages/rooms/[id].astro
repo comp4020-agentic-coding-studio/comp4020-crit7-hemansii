@@ -1,106 +1,118 @@
 ---
+import DateNav from "../../components/DateNav.astro";
 import Layout from "../../layouts/Layout.astro";
+import {
+  CLOSING_MINUTES,
+  OPENING_MINUTES,
+  SLOT_MINUTES,
+  formatDuration,
+  freeGaps,
+  libraryNow,
+  liveBookings,
+  quotaUsed,
+  roomAvailability,
+  toMinutes,
+  toTime,
+} from "../../lib/availability";
 import { getSessionUser } from "../../lib/auth";
-import { CLOSING_TIME, ERROR_MESSAGES, OPENING_TIME, type BookingRejection } from "../../lib/bookings";
-import { getRoom, listBookingsForRoomOnDate } from "../../lib/db";
+import {
+  CLOSING_TIME,
+  ERROR_MESSAGES,
+  MAX_BOOKING_MINUTES,
+  OPENING_TIME,
+  type BookingRejection,
+} from "../../lib/bookings";
+import { getRoom, listBookingsForRoomOnDate, listBookingsForUserOnDate } from "../../lib/db";
 
 const id = Number(Astro.params.id);
 const room = getRoom(id);
 if (!room) return Astro.redirect("/", 303);
 
-const toISODate = (d: Date) => d.toISOString().slice(0, 10);
-const today = new Date();
-const date = Astro.url.searchParams.get("date") || toISODate(today);
+const now = libraryNow();
+const date = Astro.url.searchParams.get("date") || now.date;
 const error = Astro.url.searchParams.get("error") as BookingRejection | null;
+const requestedStart = Astro.url.searchParams.get("start");
+const isToday = date === now.date;
 
-// Each nav entry carries its own weekday/day/month labels, computed from the
-// same Date object used to derive the ISO string, rather than re-parsing the
-// ISO date later — re-parsing a date-only string constructs a UTC midnight
-// Date, which can read back as the wrong local day.
-const dates = Array.from({ length: 14 }, (_, i) => {
-  const d = new Date(today);
-  d.setDate(d.getDate() + i);
-  return {
-    iso: toISODate(d),
-    weekday: d.toLocaleDateString("en-AU", { weekday: "short" }),
-    day: d.getDate(),
-    month: d.toLocaleDateString("en-AU", { month: "short" }),
-  };
-});
-
-const rawSchedule = listBookingsForRoomOnDate(id, date);
 const user = getSessionUser(Astro.cookies);
 
-// Timetable geometry: every time is placed as a percentage down the
-// OPENING_TIME–CLOSING_TIME span, so the markup only needs top/height and
-// never a fixed row grid to keep in sync with the business rules' hours.
-const toMinutes = (time: string): number => {
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
-};
-const dayStart = toMinutes(OPENING_TIME);
-const dayEnd = toMinutes(CLOSING_TIME);
-const daySpan = dayEnd - dayStart;
+// Bookings nobody checked into have lapsed and no longer hold the room, so
+// everything on this page — the timetable, the free gaps, the picker — is
+// derived from the live set rather than every row in the table.
+const booked = liveBookings(listBookingsForRoomOnDate(id, date), now.date, now.minutes);
 
-const hourMarks = Array.from({ length: dayEnd / 60 - dayStart / 60 + 1 }, (_, i) => {
-  const hour = dayStart / 60 + i;
-  return {
-    label: `${String(hour).padStart(2, "0")}:00`,
-    top: ((hour * 60 - dayStart) / daySpan) * 100,
-  };
+const bookableFrom = isToday
+  ? Math.ceil(Math.max(now.minutes, OPENING_MINUTES) / SLOT_MINUTES) * SLOT_MINUTES
+  : OPENING_MINUTES;
+const gaps = freeGaps(booked, bookableFrom);
+const span = CLOSING_MINUTES - OPENING_MINUTES;
+const percent = (minutes: number) => ((minutes - OPENING_MINUTES) / span) * 100;
+
+const hourMarks = Array.from({ length: CLOSING_MINUTES / 60 - OPENING_MINUTES / 60 + 1 }, (_, i) => {
+  const hour = OPENING_MINUTES / 60 + i;
+  return { label: `${String(hour).padStart(2, "0")}:00`, top: percent(hour * 60) };
 });
 
-const schedule = rawSchedule.map((b) => ({
-  ...b,
-  top: ((toMinutes(b.startTime) - dayStart) / daySpan) * 100,
-  height: ((toMinutes(b.endTime) - toMinutes(b.startTime)) / daySpan) * 100,
+const schedule = booked.map((booking) => ({
+  ...booking,
+  top: percent(toMinutes(booking.startTime)),
+  height: ((toMinutes(booking.endTime) - toMinutes(booking.startTime)) / span) * 100,
 }));
 
-// Half-hour options for the booking dialog's start/end pickers — plain
-// <select>s read the same everywhere, unlike a native time input's
-// browser-specific spinner UI.
-const timeOptions = Array.from({ length: daySpan / 30 + 1 }, (_, i) => {
-  const minutes = dayStart + i * 30;
-  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+const openSlots = gaps.map((gap) => ({
+  ...gap,
+  top: percent(toMinutes(gap.startTime)),
+  height: ((toMinutes(gap.endTime) - toMinutes(gap.startTime)) / span) * 100,
+  minutes: toMinutes(gap.endTime) - toMinutes(gap.startTime),
+}));
+
+const availability = roomAvailability(booked, now.minutes);
+
+// Every half hour that could start a booking: inside a free stretch, with at
+// least one bookable slot after it.
+const startTimes = gaps.flatMap((gap) => {
+  const from = toMinutes(gap.startTime);
+  const to = toMinutes(gap.endTime);
+  return Array.from({ length: (to - from) / SLOT_MINUTES }, (_, i) => toTime(from + i * SLOT_MINUTES));
 });
+const endTimes = Array.from(
+  { length: (CLOSING_MINUTES - OPENING_MINUTES) / SLOT_MINUTES },
+  (_, i) => toTime(OPENING_MINUTES + (i + 1) * SLOT_MINUTES),
+);
+
+const quota = user
+  ? quotaUsed(liveBookings(listBookingsForUserOnDate(user.id, date), now.date, now.minutes))
+  : null;
+const canBook = Boolean(user) && startTimes.length > 0 && (quota?.remainingMinutes ?? 0) > 0;
+const prefill = requestedStart && startTimes.includes(requestedStart) ? requestedStart : "";
 ---
 
 <Layout title={room.name} active="rooms">
+  <a class="backlink" href="/">← All rooms</a>
   <h1>{room.name}</h1>
   <p class="lede">
     Seats {room.capacity}
     {room.equipment ? ` · ${room.equipment.split(",").join(", ")}` : ""}
   </p>
+  <p class="status-line">
+    <span class="status-pill" data-state={availability.state}>
+      <span class="status-dot" aria-hidden="true"></span>
+      {availability.state === "free" ? "Free" : availability.state === "busy" ? "Busy" : "Closed"}
+    </span>
+    <span>{availability.label}</span>
+  </p>
 
   <div class="section">
     <h2>Choose a date</h2>
-    <nav aria-label="date">
-      <ul id="date-nav">
-        {
-          dates.map((d) => (
-            <li>
-              <a
-                class="date-pill"
-                href={`/rooms/${id}/?date=${d.iso}`}
-                aria-current={d.iso === date ? "date" : undefined}
-              >
-                <span class="date-pill-dow">{d.iso === toISODate(today) ? "Today" : d.weekday}</span>
-                <span class="date-pill-day">{d.day}</span>
-                <span class="date-pill-month">{d.month}</span>
-              </a>
-            </li>
-          ))
-        }
-      </ul>
-    </nav>
+    <DateNav basePath={`/rooms/${id}/`} date={date} today={now.date} />
   </div>
 
   <div class="section">
     <div class="section-header">
-      <h2>Schedule for {date}</h2>
+      <h2>{isToday ? "Today's schedule" : `Schedule for ${date}`}</h2>
       {
         user ? (
-          <button type="button" class="btn-primary" data-open-dialog="booking-dialog">
+          <button type="button" class="btn-primary" data-open-dialog disabled={!canBook}>
             Make booking
           </button>
         ) : (
@@ -110,7 +122,28 @@ const timeOptions = Array.from({ length: daySpan / 30 + 1 }, (_, i) => {
         )
       }
     </div>
-    <div class="timetable" role="group" aria-label={`Booking schedule for ${date}, ${OPENING_TIME} to ${CLOSING_TIME}`}>
+
+    {
+      quota && quota.remainingMinutes === 0 && (
+        <p class="notice" role="status">
+          You've used your {formatDuration(quota.usedMinutes)} for {date}. Cancel a booking or pick
+          another day.
+        </p>
+      )
+    }
+    {
+      user && quota && quota.remainingMinutes > 0 && quota.usedMinutes > 0 && (
+        <p class="notice" role="status">
+          {formatDuration(quota.remainingMinutes)} of your daily 2 hours left for {date}.
+        </p>
+      )
+    }
+
+    <div
+      class="timetable"
+      role="group"
+      aria-label={`Booking schedule for ${date}, ${OPENING_TIME} to ${CLOSING_TIME}`}
+    >
       <div class="timetable-hours" aria-hidden="true">
         {
           hourMarks.map((h) => (
@@ -124,21 +157,60 @@ const timeOptions = Array.from({ length: daySpan / 30 + 1 }, (_, i) => {
         <div class="timetable-gridlines" aria-hidden="true">
           {hourMarks.map((h) => <div class="timetable-gridline" style={`top:${h.top}%`} />)}
         </div>
-        <ol class="timetable-track">
+        <div class="timetable-track">
           {
-            schedule.map((b) => (
-              <li class="timetable-slot" data-tone={String(b.id % 5)} style={`top:${b.top}%;height:${b.height}%`}>
-                <span class="timetable-slot-time">
-                  {b.startTime}–{b.endTime}
+            openSlots.map((slot) =>
+              canBook ? (
+                <button
+                  type="button"
+                  class="timetable-open"
+                  style={`top:${slot.top}%;height:${slot.height}%`}
+                  data-start={slot.startTime}
+                  data-end={slot.endTime}
+                >
+                  <span class="timetable-open-label">
+                    Free {slot.startTime}–{slot.endTime}
+                  </span>
+                  <span class="timetable-open-cta" aria-hidden="true">
+                    Book this
+                  </span>
+                </button>
+              ) : (
+                <span class="timetable-open is-static" style={`top:${slot.top}%;height:${slot.height}%`}>
+                  <span class="timetable-open-label">
+                    Free {slot.startTime}–{slot.endTime}
+                  </span>
                 </span>
-                <span class="timetable-slot-label">Booked</span>
-              </li>
-            ))
+              ),
+            )
           }
-        </ol>
+          <ol class="timetable-bookings">
+            {
+              schedule.map((b) => (
+                <li
+                  class="timetable-slot"
+                  data-tone={String(b.id % 5)}
+                  style={`top:${b.top}%;height:${b.height}%`}
+                >
+                  <span class="timetable-slot-time">
+                    {b.startTime}–{b.endTime}
+                  </span>
+                  <span class="timetable-slot-label">Booked</span>
+                </li>
+              ))
+            }
+          </ol>
+        </div>
       </div>
     </div>
-    {schedule.length === 0 && <p class="timetable-note">Free all day — nothing booked yet.</p>}
+    <p class="timetable-note">
+      {
+        schedule.length === 0
+          ? "Nothing booked yet — the whole day is open."
+          : `${schedule.length} ${schedule.length === 1 ? "booking" : "bookings"} on this day.`
+      }
+      {canBook && " Click any open stretch to book it."}
+    </p>
   </div>
 
   {
@@ -151,22 +223,24 @@ const timeOptions = Array.from({ length: daySpan / 30 + 1 }, (_, i) => {
           </button>
         </div>
         <p class="booking-dialog-sub">
-          {date} · {OPENING_TIME}–{CLOSING_TIME}
+          {date} · up to {formatDuration(MAX_BOOKING_MINUTES)} per booking
         </p>
         <form method="post" action="/api/bookings/create" class="booking-form">
-          {error && <p role="alert">{ERROR_MESSAGES[error]}</p>}
+          {error && <p class="form-error" role="alert">{ERROR_MESSAGES[error]}</p>}
           <input type="hidden" name="roomId" value={id} />
           <input type="hidden" name="date" value={date} />
           <div class="field-row">
             <div class="field">
               <label for="startTime">Start</label>
               <select id="startTime" name="startTime" required>
-                <option value="" disabled selected>
+                <option value="" disabled selected={!prefill}>
                   Select time
                 </option>
                 {
-                  timeOptions.slice(0, -1).map((t) => (
-                    <option value={t}>{t}</option>
+                  startTimes.map((t) => (
+                    <option value={t} selected={t === prefill}>
+                      {t}
+                    </option>
                   ))
                 }
               </select>
@@ -178,13 +252,14 @@ const timeOptions = Array.from({ length: daySpan / 30 + 1 }, (_, i) => {
                   Select time
                 </option>
                 {
-                  timeOptions.slice(1).map((t) => (
+                  endTimes.map((t) => (
                     <option value={t}>{t}</option>
                   ))
                 }
               </select>
             </div>
           </div>
+          <p class="booking-duration" data-duration aria-live="polite"></p>
           <div class="booking-dialog-actions">
             <button type="button" class="btn-secondary" data-close-dialog>
               Cancel
@@ -198,26 +273,116 @@ const timeOptions = Array.from({ length: daySpan / 30 + 1 }, (_, i) => {
     )
   }
 
-  <script define:vars={{ roomId: id, date, autoOpenBooking: Boolean(error) }}>
+  <script
+    is:inline
+    type="application/json"
+    id="booking-config"
+    set:html={JSON.stringify({
+      roomId: id,
+      date,
+      gaps,
+      maxMinutes: MAX_BOOKING_MINUTES,
+      remainingMinutes: quota?.remainingMinutes ?? 0,
+      autoOpen: Boolean(error) || Boolean(prefill),
+    })}
+  />
+
+  <script>
+    // Per-request data rides in the JSON tag above rather than through
+    // define:vars, so this script stays a static bundle instead of being
+    // re-inlined into every response.
+    type Gap = { startTime: string; endTime: string };
+    const config: {
+      roomId: number;
+      date: string;
+      gaps: Gap[];
+      maxMinutes: number;
+      remainingMinutes: number;
+      autoOpen: boolean;
+    } = JSON.parse(document.getElementById("booking-config")?.textContent ?? "{}");
+    const { roomId, date, gaps, maxMinutes, remainingMinutes, autoOpen } = config;
+
     // One global SSE stream carries every room's bookings (see
     // src/lib/events.ts); this page only cares about its own room+date, so
-    // it filters client-side rather than the server needing a per-room
-    // stream.
+    // it filters client-side rather than the server needing a per-room stream.
     const source = new EventSource("/api/events");
     source.addEventListener("message", (event) => {
       const booking = JSON.parse(event.data);
-      if (booking.roomId === roomId && booking.date === date) {
-        location.reload();
-      }
+      if (booking.roomId === roomId && booking.date === date) location.reload();
     });
 
-    const dialog = document.getElementById("booking-dialog");
-    for (const opener of document.querySelectorAll("[data-open-dialog]")) {
-      opener.addEventListener("click", () => dialog?.showModal());
+    const dialog = document.querySelector<HTMLDialogElement>("#booking-dialog");
+    const startSelect = document.querySelector<HTMLSelectElement>("#startTime");
+    const endSelect = document.querySelector<HTMLSelectElement>("#endTime");
+    const duration = document.querySelector<HTMLElement>("[data-duration]");
+
+    const minutes = (time: string): number =>
+      Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+    const label = (total: number): string => {
+      const h = Math.floor(total / 60);
+      const m = total % 60;
+      return h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`;
+    };
+
+    function showDuration(): void {
+      if (!duration) return;
+      const start = startSelect?.value;
+      const end = endSelect?.value;
+      duration.textContent = start && end ? `${label(minutes(end) - minutes(start))} booking` : "";
     }
-    for (const closer of document.querySelectorAll("[data-close-dialog]")) {
-      closer.addEventListener("click", () => dialog?.close());
+
+    // The end times a start actually allows: inside the same free stretch, and
+    // no longer than a single booking — or than what's left of today's cap —
+    // is allowed to run. Narrowing here means the picker can't offer a time
+    // the server is only going to reject.
+    function refreshEndOptions(): void {
+      if (!startSelect || !endSelect) return;
+      const start = startSelect.value;
+      if (!start) return;
+
+      const gap = gaps.find(
+        (g) => minutes(g.startTime) <= minutes(start) && minutes(start) < minutes(g.endTime),
+      );
+      const ceiling = Math.min(
+        gap ? minutes(gap.endTime) : minutes(start),
+        minutes(start) + Math.min(maxMinutes, remainingMinutes || maxMinutes),
+      );
+
+      const previous = endSelect.value;
+      for (const option of endSelect.options) {
+        if (!option.value) continue;
+        const value = minutes(option.value);
+        option.hidden = option.disabled = value <= minutes(start) || value > ceiling;
+      }
+
+      const kept = [...endSelect.options].find((o) => o.value === previous && !o.disabled);
+      if (!kept) {
+        const first = [...endSelect.options].find((o) => o.value && !o.disabled);
+        endSelect.value = first ? first.value : "";
+      }
+      showDuration();
     }
-    if (autoOpenBooking) dialog?.showModal();
+
+    startSelect?.addEventListener("change", refreshEndOptions);
+    endSelect?.addEventListener("change", showDuration);
+
+    const open = (start?: string): void => {
+      if (!dialog) return;
+      if (start && startSelect) startSelect.value = start;
+      refreshEndOptions();
+      dialog.showModal();
+    };
+
+    for (const button of document.querySelectorAll("[data-open-dialog]")) {
+      button.addEventListener("click", () => open());
+    }
+    // Clicking a free stretch on the timetable books that stretch.
+    for (const slot of document.querySelectorAll<HTMLElement>(".timetable-open[data-start]")) {
+      slot.addEventListener("click", () => open(slot.dataset.start));
+    }
+    for (const button of document.querySelectorAll("[data-close-dialog]")) {
+      button.addEventListener("click", () => dialog?.close());
+    }
+    if (autoOpen) open(startSelect?.value || undefined);
   </script>
 </Layout>

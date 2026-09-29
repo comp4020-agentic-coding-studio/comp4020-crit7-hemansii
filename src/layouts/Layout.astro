@@ -4,15 +4,18 @@
 // exists to keep markup (and therefore the look) consistent across pages.
 import "../styles.css";
 
+type NavKey = "rooms" | "schedule" | "bookings" | "readme";
+
 export interface Props {
   title: string;
-  active?: "rooms" | "bookings" | "readme";
+  active?: NavKey;
 }
 
 const { title, active } = Astro.props;
 
-const links: { href: string; label: string; key: "rooms" | "bookings" | "readme" }[] = [
-  { href: "/", label: "Rooms", key: "rooms" },
+const links: { href: string; label: string; key: NavKey }[] = [
+  { href: "/", label: "Find a room", key: "rooms" },
+  { href: "/schedule", label: "Day view", key: "schedule" },
   { href: "/bookings", label: "My bookings", key: "bookings" },
   { href: "/readme/", label: "About", key: "readme" },
 ];

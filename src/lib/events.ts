@@ -8,7 +8,7 @@ export const bus = new EventEmitter();
 bus.setMaxListeners(0);
 
 export type BookingEvent = {
-  type: "created" | "cancelled";
+  type: "created" | "cancelled" | "updated";
   roomId: number;
   date: string;
   startTime: string;

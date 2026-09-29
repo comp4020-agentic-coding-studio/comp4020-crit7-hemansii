@@ -1,27 +1,156 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { listRooms } from "../lib/db";
+import { formatDuration, libraryNow, liveBookings, roomAvailability } from "../lib/availability";
+import { listBookingsOnDate, listRooms } from "../lib/db";
 
+// The question a student actually arrives with is "where can I sit right
+// now?" — the real library's booking site can't answer it (you pick a branch,
+// then a room, then read a grid, and only after logging in). So this page
+// leads with live status for every room at once, and treats picking a
+// specific room as the follow-up rather than the first step.
+const now = libraryNow();
 const rooms = listRooms();
+const todaysBookings = listBookingsOnDate(now.date);
+
+const params = Astro.url.searchParams;
+const seats = Number(params.get("seats") ?? "") || 0;
+const kit = params.get("kit") ?? "";
+const freeOnly = params.get("free") === "now";
+
+const equipmentOptions = [
+  ...new Set(rooms.flatMap((room) => (room.equipment ? room.equipment.split(",") : []))),
+].sort();
+
+const cards = rooms.map((room) => ({
+  room,
+  availability: roomAvailability(
+    liveBookings(
+      todaysBookings.filter((booking) => booking.roomId === room.id),
+      now.date,
+      now.minutes,
+    ),
+    now.minutes,
+  ),
+}));
+
+const stateRank = { free: 0, busy: 1, closed: 2 };
+const visible = cards
+  .filter(({ room, availability }) => {
+    if (seats && room.capacity < seats) return false;
+    if (kit && !room.equipment.split(",").includes(kit)) return false;
+    if (freeOnly && availability.state !== "free") return false;
+    return true;
+  })
+  .sort(
+    (a, b) =>
+      stateRank[a.availability.state] - stateRank[b.availability.state] ||
+      a.room.capacity - b.room.capacity ||
+      a.room.name.localeCompare(b.room.name),
+  );
+
+const freeCount = cards.filter((card) => card.availability.state === "free").length;
+const filtered = seats > 0 || kit !== "" || freeOnly;
 ---
 
-<Layout title="Study rooms" active="rooms">
-  <h1>Study rooms</h1>
-  <p class="lede">Pick a room to see today's schedule and book a slot.</p>
-
-  <ul id="rooms">
+<Layout title="Find a study room" active="rooms">
+  <h1>Find a study room</h1>
+  <p class="lede">
     {
-      rooms.map((room) => (
-        <li>
-          <a class="room-card" href={`/rooms/${room.id}/`}>
-            <span class="room-name">{room.name}</span>
-            <span class="room-meta">
-              {room.capacity} {room.capacity === 1 ? "seat" : "seats"}
-              {room.equipment && ` · ${room.equipment.split(",").join(", ")}`}
-            </span>
-          </a>
-        </li>
-      ))
+      freeCount > 0
+        ? `${freeCount} of ${cards.length} rooms are free right now, at ${now.time}.`
+        : `Nothing is free at ${now.time} — the next openings are listed below.`
     }
-  </ul>
+  </p>
+
+  <form class="filters" method="get" aria-label="filter rooms">
+    <div class="field">
+      <label for="seats">Group size</label>
+      <select id="seats" name="seats">
+        <option value="">Any size</option>
+        {
+          [1, 2, 4, 8, 12].map((n) => (
+            <option value={String(n)} selected={seats === n}>
+              {n}+ {n === 1 ? "seat" : "seats"}
+            </option>
+          ))
+        }
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="kit">Equipment</label>
+      <select id="kit" name="kit">
+        <option value="">Anything</option>
+        {
+          equipmentOptions.map((item) => (
+            <option value={item} selected={kit === item}>
+              {item}
+            </option>
+          ))
+        }
+      </select>
+    </div>
+
+    <label class="check">
+      <input type="checkbox" name="free" value="now" checked={freeOnly} />
+      Free right now
+    </label>
+
+    <button type="submit">Search</button>
+    {filtered && <a class="filters-clear" href="/">Clear</a>}
+  </form>
+
+  {
+    visible.length === 0 ? (
+      <p class="empty-state">
+        No rooms match those filters. <a href="/">Clear them</a> to see everything, or check{" "}
+        <a href="/schedule">the day view</a> for what's free later.
+      </p>
+    ) : (
+      <ul id="rooms">
+        {visible.map(({ room, availability }) => (
+          <li>
+            <a class="room-card" href={`/rooms/${room.id}/`} data-state={availability.state}>
+              <span class="room-card-top">
+                <span class="room-name">{room.name}</span>
+                <span class="status-pill" data-state={availability.state}>
+                  <span class="status-dot" aria-hidden="true" />
+                  {availability.state === "free" ? "Free" : availability.state === "busy" ? "Busy" : "Closed"}
+                </span>
+              </span>
+              <span class="room-meta">
+                {room.capacity} {room.capacity === 1 ? "seat" : "seats"}
+                {room.equipment && ` · ${room.equipment.split(",").join(", ")}`}
+              </span>
+              <span class="room-status">
+                {availability.label}
+                {availability.nextFreeFrom && availability.state === "busy" && (
+                  <span class="room-status-next"> · free from {availability.nextFreeFrom}</span>
+                )}
+              </span>
+              {availability.freeMinutesLeft > 0 && (
+                <span class="room-free-left">
+                  {formatDuration(availability.freeMinutesLeft)} free left today
+                </span>
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  <p class="page-hint">
+    Looking for a specific time instead? <a href="/schedule">See every room on one grid</a>.
+  </p>
+
+  <script>
+    // Re-run the search as soon as a filter changes; the Search button stays
+    // for anyone without JS, which is why this is wired on top rather than
+    // replacing the form's own submit.
+    const filters = document.querySelector<HTMLFormElement>(".filters");
+    for (const control of filters?.querySelectorAll("select, input[type=checkbox]") ?? []) {
+      control.addEventListener("change", () => filters?.requestSubmit());
+    }
+  </script>
 </Layout>

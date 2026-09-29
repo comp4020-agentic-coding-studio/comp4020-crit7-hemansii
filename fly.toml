@@ -18,6 +18,11 @@ dockerfile = "Dockerfile"
 # the SQLite file lives on the volume, so state survives reloads, restarts,
 # and redeploys
 DATABASE_PATH = "/data/app.db"
+# Every date and time in this app is a local wall-clock string for one
+# library, so the process has to agree with that library's calendar. A
+# container defaults to UTC, which is 10-11 hours behind Canberra — enough
+# that "today" would point at yesterday for most of the working day.
+TZ = "Australia/Sydney"
 
 [http_service]
 internal_port = 4321
